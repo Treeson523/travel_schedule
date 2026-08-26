@@ -58,6 +58,8 @@
     /* 到期急迫度 */
     --due-over: #C1432B;
     --due-soon: #A87A2C;
+    /* 底部分頁列的高度（不含 iPhone 下方安全區），FAB 和清單底部留白都跟著它算 */
+    --tabbar-h: 54px;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
@@ -191,7 +193,7 @@
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 16px 16px 84px;
+    padding: 16px 16px 76px;   /* 底部留白 = 讓最後一張卡片不會被右下角的「＋」擋住 */
     -webkit-overflow-scrolling: touch;
   }
   .panel[hidden] { display: none; }
@@ -235,6 +237,22 @@
   }
   .trip-time-col .t.range { font-size: 0.82rem; letter-spacing: -0.02em; }
   .trip-time-col .t.empty { color: var(--text-soft); font-size: 0.75rem; }
+  /* 跨日行程延續到隔天的「接續列」：刻意做得比較淡，
+     讓每天的重點還是當天真正開始的活動 */
+  .trip-card.continued { background: var(--surface); border-style: dashed; box-shadow: none; }
+  .trip-card.continued .trip-time-col { background: transparent; }
+  .trip-card.continued .trip-title { font-weight: 600; color: var(--text-soft); }
+  .trip-card.continued .trip-body { padding-top: 10px; padding-bottom: 10px; }
+  .t-arrow { margin-left: 3px; font-weight: 700; opacity: 0.75; }
+  .span-chip {
+    display: inline-flex; align-items: center; gap: 4px; margin-top: 6px;
+    background: var(--primary-soft); color: var(--primary);
+    border-radius: 999px; padding: 3px 9px; font-size: 0.73rem; font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .span-chip svg { width: 12px; height: 12px; flex: none; }
+  .span-chip.cont { background: transparent; color: var(--text-soft); padding-left: 0; }
+
   .trip-body { flex: 1; padding: 12px 14px; min-width: 0; }
   .trip-title-row { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; }
   .trip-title { font-weight: 700; font-size: 0.98rem; margin: 0; color: var(--text); min-width: 0; }
@@ -325,7 +343,7 @@
   /* 分頁列上的數字紅點 */
   .tab-btn { position: relative; }
   .tab-badge {
-    position: absolute; top: 2px; left: 50%; margin-left: 6px;
+    position: absolute; top: 5px; left: 50%; margin-left: 6px;
     min-width: 17px; height: 17px; padding: 0 5px; border-radius: 999px;
     background: var(--accent); color: #fff; font-size: 0.65rem; font-weight: 700;
     display: flex; align-items: center; justify-content: center; line-height: 1;
@@ -347,7 +365,8 @@
 
   /* ---------- FAB ---------- */
   .fab {
-    position: absolute; right: 20px; bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+    position: absolute; right: 20px;
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 14px);
     width: 54px; height: 54px; border-radius: 50%; border: none;
     background: var(--accent); color: #fff; font-size: 1.7rem; line-height: 1;
     display: flex; align-items: center; justify-content: center;
@@ -356,17 +375,24 @@
   .fab:active { transform: scale(0.95); }
 
   /* ---------- Tab bar ---------- */
+  /* iPhone 有 Home 指示條的機型，下方會自動再加一段 34px 的安全區，
+     所以這裡的 --tabbar-h 只算「按鈕本身」的高度，安全區另外用 padding 加。
+     54 + 34 ≈ 88px，貼近 iOS 系統分頁列的標準高度（約 83pt），
+     不會像先前那樣把畫面下方吃掉太多。 */
   .tabbar {
-    flex: none; display: flex; background: var(--header-bg);
-    padding: 8px 6px calc(8px + env(safe-area-inset-bottom, 0px));
+    flex: none;
+    height: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+    padding: 0 6px env(safe-area-inset-bottom, 0px);
+    display: flex; align-items: stretch;
+    background: var(--header-bg);
     position: relative; z-index: 10;
   }
   .tab-btn {
-    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
     background: none; border: none; color: var(--header-text); opacity: 0.55;
-    padding: 6px 4px; cursor: pointer; font-size: 0.7rem; font-weight: 600;
+    padding: 0 4px; cursor: pointer; font-size: 0.67rem; font-weight: 600; line-height: 1.2;
   }
-  .tab-btn svg { width: 22px; height: 22px; }
+  .tab-btn svg { width: 20px; height: 20px; }
   .tab-btn.active { opacity: 1; color: var(--accent); }
 
   /* ---------- Sheet（底部彈出表單）---------- */
@@ -425,6 +451,7 @@
     width: 18px; height: 18px; color: var(--text-soft); pointer-events: none;
   }
   .field textarea { resize: vertical; min-height: 64px; }
+  .field-hint { font-size: 0.75rem; color: var(--text-soft); margin: 6px 0 0; line-height: 1.5; }
   /* flex-wrap + min-width:0 修正 iOS 原生日期/時間欄位在小螢幕上
      因為預設最小寬度（min-width:auto）而互相擠壓、超出畫面的問題 */
   .field-row { display: flex; flex-wrap: wrap; gap: 10px; }
@@ -450,6 +477,7 @@
   .sync-badge.on { background: var(--primary-soft); color: var(--primary); }
   .sync-badge.off { background: var(--accent-soft); color: var(--accent); }
   .sync-badge.warn { background: color-mix(in oklab, var(--gold) 16%, var(--card)); color: var(--gold); }
+  .sync-badge.neutral { background: var(--surface); color: var(--text-soft); border: 1px solid var(--line); }
   /* 綜合判斷卡：直接回答「我的資料安全嗎」，不用自己解讀技術指標 */
   .verdict {
     border-radius: 14px; padding: 14px 16px; margin-bottom: 16px;
@@ -572,18 +600,26 @@
   <h2 id="itinerarySheetTitle">新增行程</h2>
   <form id="itineraryForm">
     <div class="field">
-      <label for="ti-date">日期</label>
+      <label for="ti-date">開始日期</label>
       <div class="input-icon-field">
         <input type="date" id="ti-date" required>
         <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
       </div>
     </div>
     <div class="field">
-      <label for="ti-start">起始時間（選填）</label>
+      <label for="ti-start">開始時間（選填）</label>
       <div class="input-icon-field">
         <input type="time" id="ti-start">
         <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
       </div>
+    </div>
+    <div class="field">
+      <label for="ti-enddate">結束日期（跨日活動才需要填）</label>
+      <div class="input-icon-field">
+        <input type="date" id="ti-enddate">
+        <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      </div>
+      <p class="field-hint">留空＝當天結束。像夜間巴士、跨夜航班、住宿好幾晚，就填最後一天。</p>
     </div>
     <div class="field">
       <label for="ti-end">結束時間（選填）</label>
@@ -954,6 +990,7 @@ function normalizeTrip(t) {
     id: t.id,
     date: t.date,
     startTime: t.startTime ?? t.time ?? '',
+    endDate: t.endDate ?? '',
     endTime: t.endTime ?? '',
     category: CATEGORY_MAP[t.category] ? t.category : 'sight',
     title: t.title ?? '',
@@ -989,6 +1026,34 @@ function uid() {
 function todayStr() {
   const d = new Date();
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+// 以「當地日期」為單位加減天數。用 new Date(y, m-1, d+n) 讓瀏覽器自己處理
+// 月底、閏年、跨年，比自己算安全。
+function addDays(dateStr, n) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d + n);
+  return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+}
+function daysBetween(a, b) {
+  const [ay, am, ad] = a.split('-').map(Number);
+  const [by, bm, bd] = b.split('-').map(Number);
+  return Math.round((new Date(by, bm - 1, bd) - new Date(ay, am - 1, ad)) / 86400000);
+}
+function fmtShortDate(dateStr) {
+  const [, m, d] = dateStr.split('-').map(Number);
+  return `${m}/${d}`;
+}
+
+// 跨日行程會佔用哪幾天。上限 30 天是保險：萬一日期打錯（例如年份多打一位）
+// 也不會產生上千個區塊把畫面卡死。
+function tripSpanDays(t) {
+  if (!t.endDate || !t.date || t.endDate === t.date) return [t.date];
+  const n = daysBetween(t.date, t.endDate);
+  if (n <= 0 || n > 30) return [t.date];
+  const out = [];
+  for (let i = 0; i <= n; i++) out.push(addDays(t.date, i));
+  return out;
 }
 
 function fmtDate(dateStr) {
@@ -1175,10 +1240,19 @@ function updateSyncBadge() {
   const localHint = document.getElementById('localHint');
   const chip = document.getElementById('syncChip');
 
+  // 標題列的小標籤看的是「資料到底有沒有被保護」，不是單看雲端那一層。
+  // 自架版本本來就沒有雲端層（那是 claude.ai 專屬的），只要手機儲存已鎖定
+  // 就是安全的，不該再顯示紅色警告。
   if (chip) {
-    if (cloudStatus === 'on') { chip.textContent = '☁️ 已同步'; chip.className = 'sync-chip on'; }
-    else if (cloudStatus === 'checking') { chip.textContent = '檢查中'; chip.className = 'sync-chip checking'; }
-    else { chip.textContent = '⚠️ 未同步'; chip.className = 'sync-chip off'; }
+    if (cloudStatus === 'checking') {
+      chip.textContent = '檢查中'; chip.className = 'sync-chip checking';
+    } else if (cloudStatus === 'on') {
+      chip.textContent = '☁️ 已同步'; chip.className = 'sync-chip on';
+    } else if (persistState === 'granted') {
+      chip.textContent = '📱 已保存'; chip.className = 'sync-chip on';
+    } else {
+      chip.textContent = '⚠️ 未保護'; chip.className = 'sync-chip off';
+    }
   }
 
   if (el) {
@@ -1200,10 +1274,15 @@ function updateSyncBadge() {
       el.textContent = '⛔ 這個環境不允許雲端保存';
       el.className = 'sync-badge off';
       if (hint) hint.textContent = '在 iPhone 上，這個 APP 是跑在 claude.ai 的沙箱框架裡，該環境直接關閉了雲端寫入。這不是登入問題，重試或重登也不會改變。要有真正的雲端保存，需要把 APP 搬到自己的網址（我已經幫你準備好整包檔案與教學）。';
+    } else if (!diag.hasClaude) {
+      // 自架版本：沒有雲端層是設計如此，不是故障，用中性語氣說明就好
+      el.textContent = '☁️ 此版本無雲端層';
+      el.className = 'sync-badge neutral';
+      if (hint) hint.textContent = '你是用自己架設的網址開啟，雲端保存是 claude.ai 版本專屬的功能，這裡沒有屬正常。資料由下面的手機儲存那層負責保護。';
     } else {
       el.textContent = '雲端保存不可用';
       el.className = 'sync-badge off';
-      if (hint) hint.textContent = '這個版本沒有雲端保存（例如你自己另外架站的版本）。請務必定期用下面的「下載備份檔」保存一份。';
+      if (hint) hint.textContent = '這個環境沒有提供雲端保存。請務必定期用下面的「下載備份檔」保存一份。';
     }
   }
 
@@ -1259,11 +1338,12 @@ function updateVerdict() {
     box.className = 'verdict checking';
     box.innerHTML = `<div class="verdict-title">檢查中…</div><p>正在確認保存狀態。</p>`;
   } else if (persistState === 'granted') {
-    box.className = 'verdict warn';
-    box.innerHTML = `<div class="verdict-title">⚠️ 只存在這支手機裡</div>
-      <p>雲端那層目前沒有運作，但手機儲存已鎖定，所以資料不會被 Safari 自動清掉。
-      風險是：<strong>換手機、手機遺失、或手動刪除瀏覽資料，資料就沒了。</strong></p>
-      <p class="verdict-sub">${backupLine}請先下載一份備份檔，再照上面雲端層的說明處理。</p>`;
+    box.className = 'verdict safe';
+    box.innerHTML = `<div class="verdict-title">✅ 資料已受保護</div>
+      <p>手機儲存已鎖定，iOS <strong>不會</strong>再自動清除你的資料，放著多久沒開都不會不見。${
+        !diag.hasClaude ? '（這個自架版本沒有雲端層，屬正常設計。）' : ''}</p>
+      <p>剩下的風險只有一個：資料存在<strong>這支手機裡</strong>，換手機、手機遺失或手動清除網站資料時會跟著沒有。</p>
+      <p class="verdict-sub">${backupLine}出遠門前按一次下面的「下載備份檔」就能補上這個缺口。</p>`;
   } else {
     box.className = 'verdict risk';
     box.innerHTML = `<div class="verdict-title">🚨 請養成下載備份檔的習慣</div>
@@ -1353,8 +1433,10 @@ function updateHeaderSub() {
   const sub = document.getElementById('headerSub');
   if (currentTab === 'itinerary') {
     const n = state.trips.length;
-    const days = new Set(state.trips.map((t) => t.date)).size;
-    sub.textContent = n ? `共 ${days} 天・${n} 個行程` : '還沒有任何行程';
+    // 跨日行程涵蓋的每一天都要算進去，天數才不會少算
+    const daySet = new Set();
+    state.trips.forEach((t) => tripSpanDays(t).forEach((d) => daySet.add(d)));
+    sub.textContent = n ? `共 ${daySet.size} 天・${n} 個行程` : '還沒有任何行程';
   } else if (currentTab === 'shopping') {
     const done = state.shopping.filter((s) => s.done).length;
     sub.textContent = state.shopping.length ? `已購買 ${done} / ${state.shopping.length}` : '清單是空的';
@@ -1468,6 +1550,7 @@ function openItinerarySheet(trip) {
   document.getElementById('itinerarySheetTitle').textContent = trip ? '編輯行程' : '新增行程';
   document.getElementById('ti-date').value = trip ? trip.date : todayStr();
   document.getElementById('ti-start').value = trip ? (trip.startTime || '') : '';
+  document.getElementById('ti-enddate').value = trip ? (trip.endDate || '') : '';
   document.getElementById('ti-end').value = trip ? (trip.endTime || '') : '';
   setSelectedCategory(trip ? trip.category : CATEGORY_DEFS[0].key);
   document.getElementById('ti-title').value = trip ? trip.title : '';
@@ -1490,6 +1573,7 @@ tiForm.addEventListener('submit', (e) => {
     id: editingTripId || uid(),
     date: document.getElementById('ti-date').value,
     startTime: document.getElementById('ti-start').value,
+    endDate: document.getElementById('ti-enddate').value,
     endTime: document.getElementById('ti-end').value,
     category: selectedCategory,
     title: document.getElementById('ti-title').value.trim(),
@@ -1497,6 +1581,18 @@ tiForm.addEventListener('submit', (e) => {
     note: document.getElementById('ti-note').value.trim(),
   };
   if (!data.date || !data.title) return;
+
+  // 結束日期跟開始同一天就當作沒跨日，不用特別記
+  if (data.endDate && data.endDate === data.date) data.endDate = '';
+  // 結束比開始還早一定是填錯，擋下來並說清楚，不要默默存進去
+  if (data.endDate && daysBetween(data.date, data.endDate) < 0) {
+    showToast('結束日期比開始日期早，請重新確認');
+    return;
+  }
+  if (!data.endDate && data.startTime && data.endTime && data.endTime < data.startTime) {
+    showToast('結束時間比開始早，若是跨夜請填結束日期');
+    return;
+  }
   if (editingTripId) {
     const i = state.trips.findIndex((t) => t.id === editingTripId);
     state.trips[i] = data;
@@ -1517,14 +1613,34 @@ function renderItinerary() {
     return;
   }
   const sorted = [...state.trips].sort((a, b) => (a.date + (a.startTime || '00:00')).localeCompare(b.date + (b.startTime || '00:00')));
+
+  // 跨日行程會出現在它涵蓋的每一天：第一天是完整卡片，之後幾天用
+  // 比較淡的「接續」列，這樣你翻到第二天也看得到自己還在車上／飯店裡。
   const groups = {};
-  sorted.forEach((t) => { (groups[t.date] ||= []).push(t); });
+  sorted.forEach((t) => {
+    const days = tripSpanDays(t);
+    days.forEach((d, i) => {
+      const mode = days.length === 1 ? 'single'
+        : (i === 0 ? 'start' : (i === days.length - 1 ? 'end' : 'middle'));
+      (groups[d] ||= []).push({ t, mode });
+    });
+  });
+
+  // 每天之內：從前一天延續過來的排最上面（它比當天任何事都早開始），
+  // 其餘依開始時間排序。
+  Object.values(groups).forEach((list) => {
+    list.sort((a, b) => {
+      const ka = (a.mode === 'middle' || a.mode === 'end') ? '' : (a.t.startTime || '00:00');
+      const kb = (b.mode === 'middle' || b.mode === 'end') ? '' : (b.t.startTime || '00:00');
+      return ka.localeCompare(kb);
+    });
+  });
 
   el.innerHTML = Object.keys(groups).sort().map((date) => `
     <div class="day-group">
       <p class="day-group-label">${fmtDate(date)}</p>
       <div class="card-list">
-        ${groups[date].map(tripCardHtml).join('')}
+        ${groups[date].map((e) => tripCardHtml(e.t, e.mode)).join('')}
       </div>
     </div>
   `).join('');
@@ -1538,7 +1654,18 @@ function renderItinerary() {
   });
 }
 
-function tripTimeColHtml(t) {
+function tripTimeColHtml(t, mode) {
+  if (mode === 'middle') return '<span class="t empty">整天</span>';
+  if (mode === 'end') {
+    return t.endTime
+      ? `<span class="t range">至 ${escapeHtml(t.endTime)}</span>`
+      : '<span class="t empty">整天</span>';
+  }
+  if (mode === 'start') {
+    // 跨日的第一天：時間後面加一個箭頭表示「還沒結束」
+    return `<span class="t">${t.startTime ? escapeHtml(t.startTime) : '整天'}<span class="t-arrow">→</span></span>`;
+  }
+  // 當天來回
   if (t.startTime && t.endTime) {
     return `<span class="t range">${escapeHtml(t.startTime)}&ndash;${escapeHtml(t.endTime)}</span>`;
   }
@@ -1546,13 +1673,38 @@ function tripTimeColHtml(t) {
   return '<span class="t empty">全天</span>';
 }
 
-function tripCardHtml(t) {
-  const href = mapHref(t.map);
+function tripCardHtml(t, mode) {
+  const m = mode || 'single';
   const cat = categoryDef(t.category);
+  const isCont = m === 'middle' || m === 'end';   // 從前一天延續過來的
+
+  // 接續列只放必要資訊，維持淡色、不重複顯示備註和地圖按鈕，避免整個行程表被灌爆
+  if (isCont) {
+    const total = tripSpanDays(t).length;
+    return `
+    <div class="trip-card continued" data-trip-id="${t.id}">
+      <div class="trip-time-col">${tripTimeColHtml(t, m)}</div>
+      <div class="trip-body">
+        <div class="trip-title-row">
+          <span class="cat-badge" style="--cat-color:${cat.color}" title="${cat.label}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${cat.icon}</svg>
+          </span>
+          <p class="trip-title">${escapeHtml(t.title)}</p>
+        </div>
+        <span class="span-chip cont">${m === 'end' ? `最後一天・共 ${total} 天` : `接續中・共 ${total} 天`}</span>
+      </div>
+    </div>`;
+  }
+
+  const href = mapHref(t.map);
+  const spanDays = m === 'start' ? tripSpanDays(t).length : 1;
+  const endLabel = m === 'start'
+    ? `至 ${fmtShortDate(t.endDate)}${t.endTime ? ' ' + escapeHtml(t.endTime) : ''}・共 ${spanDays} 天`
+    : '';
   return `
     <div class="trip-card" data-trip-id="${t.id}">
       <div class="trip-time-col">
-        ${tripTimeColHtml(t)}
+        ${tripTimeColHtml(t, m)}
       </div>
       <div class="trip-body">
         <div class="trip-title-row">
@@ -1561,6 +1713,10 @@ function tripCardHtml(t) {
           </span>
           <p class="trip-title">${escapeHtml(t.title)}</p>
         </div>
+        ${endLabel ? `<span class="span-chip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h13M13 6l6 6-6 6"/></svg>
+          ${endLabel}
+        </span>` : ''}
         ${t.note ? `<p class="trip-note">${escapeHtml(t.note)}</p>` : ''}
         ${href ? `<a class="pill-link" href="${href}" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
