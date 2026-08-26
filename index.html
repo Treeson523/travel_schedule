@@ -1,0 +1,2175 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#16262B">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="旅程手帳">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>旅程手帳</title>
+</head>
+<body>
+<style>
+  /* ============================================================
+     設計變數（Design Tokens）
+     這個 APP 用「護照 / 登機證」的視覺概念：
+     - 深墨綠當作品牌色（護照封面感）
+     - 印章紅當作強調色（登機證上的印章）
+     - 金色用在金額數字上（像燙金字）
+     淺色 / 深色模式各自定義一份，系統會自動依手機設定切換。
+     ============================================================ */
+  :root {
+    --text: #16262B;
+    --text-soft: #52696D;
+    --surface: #EFF3F1;
+    --card: #FFFFFF;
+    --line: #DEE5E1;
+    --primary: #1F6F63;
+    --primary-soft: #DCEBE6;
+    --accent: #C1432B;
+    --accent-soft: #F6DFD8;
+    --gold: #A87A2C;
+    --header-bg: #16262B;
+    --header-text: #F3EFE7;
+    --shadow: rgba(20, 38, 43, 0.12);
+    --danger: #B3261E;
+    /* 行程類別色（來自驗證過的色盲安全 categorical 色盤，固定順序、固定對應） */
+    --cat-sight: #2A78D6;
+    --cat-food: #EB6834;
+    --cat-activity: #1BAF7A;
+    --cat-shop: #EDA100;
+    --cat-stay: #E87BA4;
+    --cat-transport: #008300;
+    --cat-other: #4A3AA7;
+    /* 待辦類別沿用同一組已驗證的色盤（用 var 指過去，深色模式會自動跟著換，
+       不用再重複寫一次）。「其他」刻意不給顏色，用灰的就好。 */
+    --todo-doc: var(--cat-sight);        /* 藍 */
+    --todo-ticket: var(--cat-food);      /* 橘 */
+    --todo-net: var(--cat-activity);     /* 青綠 */
+    --todo-money: var(--cat-shop);       /* 黃 */
+    --todo-stay: var(--cat-stay);        /* 粉 */
+    --todo-insure: var(--cat-transport); /* 綠 */
+    --todo-pack: var(--cat-other);       /* 紫 */
+    --todo-misc: var(--text-soft);       /* 灰 */
+    /* 到期急迫度 */
+    --due-over: #C1432B;
+    --due-soon: #A87A2C;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --text: #E9EFEC;
+      --text-soft: #9FB4B0;
+      --surface: #0F1718;
+      --card: #172423;
+      --line: #263634;
+      --primary: #5CB19E;
+      --primary-soft: #1B322E;
+      --accent: #E2775D;
+      --accent-soft: #3A241F;
+      --gold: #D2A857;
+      --header-bg: #0B1414;
+      --header-text: #EDE7DC;
+      --shadow: rgba(0, 0, 0, 0.45);
+      --danger: #E2775D;
+      --cat-sight: #3987E5;
+      --cat-food: #D95926;
+      --cat-activity: #199E70;
+      --cat-shop: #C98500;
+      --cat-stay: #D55181;
+      --cat-transport: #008300;
+      --cat-other: #9085E9;
+      --due-over: #E2775D;
+      --due-soon: #D2A857;
+    }
+  }
+  :root[data-theme="dark"] {
+    --text: #E9EFEC;
+    --text-soft: #9FB4B0;
+    --surface: #0F1718;
+    --card: #172423;
+    --line: #263634;
+    --primary: #5CB19E;
+    --primary-soft: #1B322E;
+    --accent: #E2775D;
+    --accent-soft: #3A241F;
+    --gold: #D2A857;
+    --header-bg: #0B1414;
+    --header-text: #EDE7DC;
+    --shadow: rgba(0, 0, 0, 0.45);
+    --danger: #E2775D;
+    --cat-sight: #3987E5;
+    --cat-food: #D95926;
+    --cat-activity: #199E70;
+    --cat-shop: #C98500;
+    --cat-stay: #D55181;
+    --cat-transport: #008300;
+    --cat-other: #9085E9;
+    --due-over: #E2775D;
+    --due-soon: #D2A857;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; height: 100%; }
+  body {
+    margin: 0;
+    height: 100%;
+    /* 手機上整個頁面本身不捲動，只有中間的清單區捲動，
+       這樣底部的分頁列（行程／購物清單）才會永遠固定在畫面下方 */
+    overflow: hidden;
+    background: var(--surface);
+    color: var(--text);
+    font-family: "IBM Plex Sans", "Noto Sans TC", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, .display {
+    font-family: "Manrope", "Noto Sans TC", system-ui, sans-serif;
+    text-wrap: balance;
+  }
+  .mono, .amount, time, .date-badge {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  button { font-family: inherit; }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  }
+
+  /* ---------- App shell：手機外框 ---------- */
+  .app {
+    max-width: 480px;
+    margin: 0 auto;
+    /* 用固定高度（不是 min-height）：min-height 會讓外框跟著內容一起長高，
+       中間的清單就永遠捲不動，變成整頁一起捲、底部分頁列被推出畫面外。
+       改成固定滿版高度後，能捲的就只剩中間那塊，分頁列自然固定在下面。
+       100vh 是舊瀏覽器的退路，100dvh 會扣掉 Safari 的網址列高度。 */
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  @media (min-width: 560px) {
+    body { display: flex; justify-content: center; align-items: center; padding: 2rem 1rem; overflow: auto; }
+    .app {
+      height: min(100dvh - 4rem, 900px);
+      border-radius: 32px;
+      box-shadow: 0 24px 64px var(--shadow);
+      border: 1px solid var(--line);
+    }
+  }
+
+  /* ---------- Header ---------- */
+  .app-header {
+    background: var(--header-bg);
+    color: var(--header-text);
+    padding: calc(env(safe-area-inset-top, 0px) + 18px) 20px 16px;
+    flex: none;
+  }
+  .header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .app-title { margin: 0; font-size: 1.28rem; font-weight: 800; letter-spacing: 0.01em; }
+  .icon-btn {
+    border: none; background: rgba(255,255,255,0.12); color: var(--header-text);
+    width: 38px; height: 38px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    flex: none;
+  }
+  .icon-btn:active { background: rgba(255,255,255,0.22); }
+  .header-sub { margin-top: 6px; font-size: 0.85rem; color: var(--header-text); opacity: 0.75; }
+
+  /* ---------- Tab panels ---------- */
+  /* 唯一會捲動的區域。min-height:0 是必要的：flex 子項預設不會縮到比內容小，
+     少了它 overflow-y:auto 不會生效，捲動又會跑回整頁去。
+     底部留 84px 是為了讓最後一張卡片不會被右下角的「＋」按鈕擋住。 */
+  .tab-panels {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 16px 16px 84px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .panel[hidden] { display: none; }
+
+  /* 資料有風險時的提醒條：只在真的需要時出現，點一下直接開備份頁 */
+  .backup-nag {
+    display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+    background: var(--accent-soft); border: 1px solid var(--accent); color: var(--accent);
+    border-radius: 12px; padding: 11px 14px; margin-bottom: 14px; cursor: pointer;
+    font-size: 0.82rem; font-weight: 600; font-family: inherit;
+  }
+  .backup-nag[hidden] { display: none; }
+  .backup-nag .nag-icon { flex: none; }
+  .backup-nag .nag-text { flex: 1; min-width: 0; line-height: 1.45; }
+  .backup-nag .nag-cta { flex: none; font-weight: 700; }
+
+  .day-group { margin-bottom: 18px; }
+  .day-group-label {
+    font-size: 0.78rem; font-weight: 600; color: var(--text-soft);
+    text-transform: uppercase; letter-spacing: 0.06em; margin: 0 2px 8px;
+  }
+  .card-list { display: flex; flex-direction: column; gap: 10px; }
+
+  /* ---------- 行程卡片：登機證風格 ---------- */
+  .trip-card {
+    display: flex; background: var(--card); border: 1px solid var(--line);
+    border-radius: 16px; overflow: hidden; box-shadow: 0 1px 2px var(--shadow);
+    cursor: pointer; text-align: left; width: 100%; padding: 0;
+  }
+  .trip-card:active { background: var(--primary-soft); }
+  .trip-time-col {
+    flex: none; width: 104px; padding: 14px 6px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border-right: 2px dashed var(--line);
+    background: var(--primary-soft);
+    text-align: center;
+  }
+  .trip-time-col .t {
+    font-size: 0.95rem; font-weight: 600; color: var(--primary); line-height: 1.35;
+    white-space: nowrap; font-variant-numeric: tabular-nums;
+  }
+  .trip-time-col .t.range { font-size: 0.82rem; letter-spacing: -0.02em; }
+  .trip-time-col .t.empty { color: var(--text-soft); font-size: 0.75rem; }
+  .trip-body { flex: 1; padding: 12px 14px; min-width: 0; }
+  .trip-title-row { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; }
+  .trip-title { font-weight: 700; font-size: 0.98rem; margin: 0; color: var(--text); min-width: 0; }
+  .trip-note {
+    font-size: 0.83rem; color: var(--text-soft); margin: 0 0 8px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  /* ---------- 行程類別徽章（卡片上）與選擇器（表單裡）共用同一套顏色變數 ---------- */
+  .cat-badge {
+    flex: none; width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: color-mix(in oklab, var(--cat-color) 18%, var(--card));
+    border: 1px solid color-mix(in oklab, var(--cat-color) 32%, var(--card));
+  }
+  .cat-badge svg { width: 14px; height: 14px; color: var(--cat-color); }
+  .category-picker { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cat-option {
+    display: flex; align-items: center; gap: 6px; padding: 6px 12px 6px 6px;
+    border-radius: 999px; border: 1.5px solid var(--line); background: var(--surface);
+    color: var(--text-soft); font-size: 0.82rem; font-weight: 600; cursor: pointer;
+  }
+  .cat-option .dot {
+    width: 22px; height: 22px; border-radius: 50%; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    background: color-mix(in oklab, var(--cat-color) 16%, var(--surface));
+  }
+  .cat-option .dot svg { width: 13px; height: 13px; color: var(--cat-color); }
+  .cat-option.selected {
+    border-color: var(--cat-color);
+    background: color-mix(in oklab, var(--cat-color) 14%, var(--card));
+    color: var(--text);
+  }
+  .cat-option.selected .dot { background: color-mix(in oklab, var(--cat-color) 30%, var(--card)); }
+  .pill-link {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--primary-soft); color: var(--primary); border-radius: 999px;
+    padding: 5px 11px; font-size: 0.76rem; font-weight: 600; text-decoration: none;
+    border: none; max-width: 100%;
+  }
+  .pill-link svg { width: 13px; height: 13px; flex: none; }
+
+  /* ---------- 購物清單 ---------- */
+  .shop-row {
+    display: flex; align-items: center; gap: 12px; background: var(--card);
+    border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px;
+  }
+  .shop-check {
+    flex: none; width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--primary);
+    display: flex; align-items: center; justify-content: center; background: transparent; cursor: pointer; padding: 0;
+  }
+  .shop-check.checked { background: var(--primary); }
+  .shop-check svg { width: 14px; height: 14px; color: var(--card); opacity: 0; }
+  .shop-check.checked svg { opacity: 1; }
+  .shop-main { flex: 1; min-width: 0; background: none; border: none; text-align: left; padding: 0; cursor: pointer; display: block; }
+  .shop-name { font-weight: 600; font-size: 0.95rem; color: var(--text); display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+  .qty-badge { font-size: 0.78rem; font-weight: 600; color: var(--primary); }
+  .shop-row.done .shop-name { text-decoration: line-through; color: var(--text-soft); }
+  .shop-row.done .qty-badge { color: var(--text-soft); }
+  .shop-note { font-size: 0.8rem; color: var(--text-soft); margin-top: 2px; }
+  .shop-summary { font-size: 0.85rem; color: var(--text-soft); margin: 0 2px 12px; }
+  .shop-thumb { flex: none; width: 44px; height: 44px; border-radius: 10px; object-fit: cover; background: var(--surface); border: 1px solid var(--line); }
+  .shop-main .pill-link { margin-top: 6px; }
+
+  /* ---------- 待辦清單 ---------- */
+  .todo-row {
+    display: flex; align-items: flex-start; gap: 12px; background: var(--card);
+    border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px;
+  }
+  .todo-main { flex: 1; min-width: 0; cursor: pointer; }
+  .todo-top { display: flex; align-items: center; gap: 8px; }
+  .todo-title { font-weight: 600; font-size: 0.95rem; color: var(--text); min-width: 0; }
+  .todo-row.done .todo-title { text-decoration: line-through; color: var(--text-soft); }
+  .todo-row.done .cat-badge { opacity: 0.5; }
+  .todo-note { font-size: 0.8rem; color: var(--text-soft); margin-top: 4px; }
+  /* 到期標籤：顏色只是輔助，文字本身就講得清楚（已過期／今天到期／剩 N 天），
+     不會只靠顏色傳達訊息 */
+  .due-tag {
+    display: inline-flex; align-items: center; gap: 4px; margin-top: 7px;
+    font-size: 0.75rem; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+    font-variant-numeric: tabular-nums;
+  }
+  .due-tag svg { width: 12px; height: 12px; flex: none; }
+  .due-over { background: var(--accent-soft); color: var(--due-over); }
+  .due-today { background: var(--accent-soft); color: var(--due-over); }
+  .due-soon { background: color-mix(in oklab, var(--due-soon) 16%, var(--card)); color: var(--due-soon); }
+  .due-later { background: var(--surface); color: var(--text-soft); }
+  .due-done { background: var(--surface); color: var(--text-soft); }
+  /* 分頁列上的數字紅點 */
+  .tab-btn { position: relative; }
+  .tab-badge {
+    position: absolute; top: 2px; left: 50%; margin-left: 6px;
+    min-width: 17px; height: 17px; padding: 0 5px; border-radius: 999px;
+    background: var(--accent); color: #fff; font-size: 0.65rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; line-height: 1;
+  }
+
+  /* ---------- 圖片選擇器（購物項目的參考照片）---------- */
+  .image-picker { display: flex; align-items: center; gap: 12px; }
+  .image-preview-wrap { position: relative; flex: none; }
+  .image-preview { width: 64px; height: 64px; border-radius: 12px; object-fit: cover; display: block; border: 1px solid var(--line); }
+  .image-remove {
+    position: absolute; top: -7px; right: -7px; width: 22px; height: 22px; border-radius: 50%;
+    background: var(--danger); color: #fff; border: 2px solid var(--card); font-size: 0.7rem; line-height: 1;
+    display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
+  }
+
+  .empty-state { text-align: center; padding: 48px 20px; color: var(--text-soft); }
+  .empty-state svg { width: 40px; height: 40px; opacity: 0.4; margin-bottom: 10px; }
+  .empty-state p { margin: 0; font-size: 0.88rem; }
+
+  /* ---------- FAB ---------- */
+  .fab {
+    position: absolute; right: 20px; bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+    width: 54px; height: 54px; border-radius: 50%; border: none;
+    background: var(--accent); color: #fff; font-size: 1.7rem; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 10px 24px var(--shadow); cursor: pointer; z-index: 20;
+  }
+  .fab:active { transform: scale(0.95); }
+
+  /* ---------- Tab bar ---------- */
+  .tabbar {
+    flex: none; display: flex; background: var(--header-bg);
+    padding: 8px 6px calc(8px + env(safe-area-inset-bottom, 0px));
+    position: relative; z-index: 10;
+  }
+  .tab-btn {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    background: none; border: none; color: var(--header-text); opacity: 0.55;
+    padding: 6px 4px; cursor: pointer; font-size: 0.7rem; font-weight: 600;
+  }
+  .tab-btn svg { width: 22px; height: 22px; }
+  .tab-btn.active { opacity: 1; color: var(--accent); }
+
+  /* ---------- Sheet（底部彈出表單）---------- */
+  .sheet-overlay {
+    position: fixed; inset: 0; background: rgba(10, 16, 17, 0.5);
+    opacity: 0; pointer-events: none; transition: opacity 0.2s ease; z-index: 30;
+  }
+  .sheet-overlay.open { opacity: 1; pointer-events: auto; }
+  .sheet {
+    position: fixed; left: 50%; bottom: 0; width: 100%; max-width: 480px;
+    transform: translate(-50%, 100%); transition: transform 0.24s cubic-bezier(.32,.72,0,1);
+    background: var(--card); border-radius: 22px 22px 0 0; padding: 10px 20px calc(22px + env(safe-area-inset-bottom, 0px));
+    z-index: 31; max-height: 86dvh; overflow-y: auto; overflow-x: hidden;
+    /* overflow-x: hidden 是安全網——即使 iOS 原生日期/時間元件想畫得比欄位還寬，
+       也會在這裡被裁掉，不會整個跑出螢幕或跟旁邊的東西重疊 */
+  }
+  .sheet.open { transform: translate(-50%, 0); }
+  .sheet-grabber { width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: 4px auto 14px; }
+  .sheet h2 { margin: 0 0 16px; font-size: 1.1rem; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-soft); margin-bottom: 6px; }
+  .field input, .field select, .field textarea {
+    width: 100%; max-width: 100%; min-width: 0; border: 1px solid var(--line); background: var(--surface); color: var(--text);
+    border-radius: 10px; padding: 10px 12px; font-size: 16px; font-family: inherit;
+    box-sizing: border-box;
+  }
+  /* iOS 的原生日期／時間欄位會自己畫一個圖示，而且會跟我們自訂的
+     padding／邊框打架，導致圖示被擠到欄位外面看不到。乾脆用
+     -webkit-appearance:none 把系統的外觀整個關掉，改成我們自己畫一個
+     圖示（見 .input-icon-field），欄位本身還是原生的，點下去一樣會
+     跳出系統的日期／時間選擇器，只是外觀完全由我們控制、不會再跑版。 */
+  .field input[type="date"], .field input[type="time"] {
+    min-height: 44px;
+    -webkit-appearance: none;
+    appearance: none;
+    padding-right: 40px;
+  }
+  /* -webkit-appearance:none 不會移除這個——瀏覽器把「打開選擇器」的圖示
+     另外放在一個叫 ::-webkit-calendar-picker-indicator 的偽元素裡，
+     這才是真正跟我們自己畫的圖示互相打架、被擠到看不到的元兇。
+     這裡把它變透明但撐滿整個欄位，這樣點哪裡都還是能開啟系統的選擇器，
+     只是畫面上只會看到我們自己的圖示。 */
+  .field input[type="date"]::-webkit-calendar-picker-indicator,
+  .field input[type="time"]::-webkit-calendar-picker-indicator {
+    opacity: 0;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    cursor: pointer;
+  }
+  .input-icon-field { position: relative; }
+  .input-icon-field .input-icon {
+    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    width: 18px; height: 18px; color: var(--text-soft); pointer-events: none;
+  }
+  .field textarea { resize: vertical; min-height: 64px; }
+  /* flex-wrap + min-width:0 修正 iOS 原生日期/時間欄位在小螢幕上
+     因為預設最小寬度（min-width:auto）而互相擠壓、超出畫面的問題 */
+  .field-row { display: flex; flex-wrap: wrap; gap: 10px; }
+  .field-row .field { flex: 1 1 130px; min-width: 0; }
+  .field-row .field.narrow { flex: 0 1 100px; }
+  .sheet-actions { display: flex; gap: 10px; margin-top: 6px; }
+  .btn {
+    flex: 1; border: none; border-radius: 12px; padding: 13px; font-size: 0.95rem; font-weight: 700; cursor: pointer;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-ghost { background: var(--surface); color: var(--text); border: 1px solid var(--line); }
+  .btn-delete { background: none; color: var(--danger); font-weight: 600; padding: 13px 6px; flex: none; }
+
+  .backup-textarea {
+    width: 100%; min-height: 140px; border: 1px solid var(--line); background: var(--surface); color: var(--text);
+    border-radius: 10px; padding: 10px 12px; font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; margin-bottom: 10px;
+  }
+  .hint { font-size: 0.78rem; color: var(--text-soft); line-height: 1.5; margin: 0 0 12px; }
+  .sync-badge {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; font-weight: 600;
+    padding: 6px 12px; border-radius: 999px; margin-bottom: 10px;
+  }
+  .sync-badge.on { background: var(--primary-soft); color: var(--primary); }
+  .sync-badge.off { background: var(--accent-soft); color: var(--accent); }
+  .sync-badge.warn { background: color-mix(in oklab, var(--gold) 16%, var(--card)); color: var(--gold); }
+  /* 綜合判斷卡：直接回答「我的資料安全嗎」，不用自己解讀技術指標 */
+  .verdict {
+    border-radius: 14px; padding: 14px 16px; margin-bottom: 16px;
+    border: 1px solid var(--line); background: var(--surface);
+  }
+  .verdict p { margin: 0 0 8px; font-size: 0.82rem; line-height: 1.6; color: var(--text); }
+  .verdict p:last-child { margin-bottom: 0; }
+  .verdict .verdict-sub { color: var(--text-soft); font-size: 0.78rem; }
+  .verdict-title { font-weight: 700; font-size: 0.95rem; margin-bottom: 8px; }
+  .verdict.safe { border-color: var(--primary); background: var(--primary-soft); }
+  .verdict.safe .verdict-title { color: var(--primary); }
+  .verdict.warn { border-color: var(--gold); background: color-mix(in oklab, var(--gold) 12%, var(--card)); }
+  .verdict.warn .verdict-title { color: var(--gold); }
+  .verdict.risk { border-color: var(--accent); background: var(--accent-soft); }
+  .verdict.risk .verdict-title { color: var(--accent); }
+  .storage-layer {
+    border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px 2px; margin-bottom: 10px;
+  }
+  .storage-layer .hint { margin-bottom: 10px; }
+  .advanced { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 14px; }
+  .advanced summary {
+    font-size: 0.82rem; font-weight: 600; color: var(--text-soft); cursor: pointer; list-style: none;
+  }
+  .advanced summary::-webkit-details-marker { display: none; }
+  .advanced summary::before { content: '▸ '; }
+  .advanced[open] summary::before { content: '▾ '; }
+  .snap-row {
+    display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 10px 12px; margin-bottom: 8px; cursor: pointer; font-family: inherit;
+    color: var(--text);
+  }
+  .snap-row .snap-when { font-weight: 600; font-size: 0.86rem; flex: 1; min-width: 0; }
+  .snap-row .snap-count { font-size: 0.76rem; color: var(--text-soft); }
+  .snap-row .snap-go { font-size: 0.78rem; font-weight: 700; color: var(--primary); flex: none; }
+  .snap-empty { font-size: 0.8rem; color: var(--text-soft); margin: 0 0 12px; }
+  .diag {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.7rem; line-height: 1.7;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 12px; margin: 12px 0 10px; color: var(--text);
+    white-space: pre-wrap; word-break: break-all;
+  }
+  /* 標題列上的同步狀態小標籤，讓保存狀態隨時看得到，不用進備份頁才知道 */
+  .sync-chip {
+    border: none; border-radius: 999px; padding: 4px 10px; font-size: 0.72rem; font-weight: 600;
+    cursor: pointer; font-family: inherit; flex: none;
+  }
+  .sync-chip.on { background: rgba(255,255,255,0.14); color: var(--header-text); }
+  .sync-chip.checking { background: rgba(255,255,255,0.10); color: var(--header-text); opacity: 0.7; }
+  .sync-chip.off { background: var(--accent); color: #fff; }
+  .sync-badge.checking { background: var(--line); color: var(--text-soft); }
+  .toast {
+    position: fixed; left: 50%; bottom: 110px; transform: translateX(-50%);
+    background: var(--text); color: var(--surface); padding: 10px 18px; border-radius: 999px;
+    font-size: 0.82rem; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; z-index: 40;
+  }
+  .toast.show { opacity: 1; }
+</style>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+
+<div class="app">
+  <header class="app-header">
+    <div class="header-row">
+      <h1 class="app-title">旅程手帳</h1>
+      <button class="sync-chip checking" id="syncChip" style="margin-left:auto;">檢查中</button>
+      <button class="icon-btn" id="backupBtn" aria-label="資料保存與備份" title="資料保存與備份">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
+      </button>
+    </div>
+    <div class="header-sub" id="headerSub">—</div>
+  </header>
+
+  <main class="tab-panels">
+    <button type="button" class="backup-nag" id="backupNag" hidden>
+      <span class="nag-icon">⚠️</span>
+      <span class="nag-text" id="backupNagText"></span>
+      <span class="nag-cta">備份 ›</span>
+    </button>
+
+    <section class="panel" id="panel-itinerary" data-panel="itinerary">
+      <div id="itineraryList"></div>
+    </section>
+
+    <section class="panel" id="panel-shopping" data-panel="shopping" hidden>
+      <p class="shop-summary" id="shopSummary">—</p>
+      <div class="card-list" id="shoppingList"></div>
+    </section>
+
+    <section class="panel" id="panel-todo" data-panel="todo" hidden>
+      <p class="shop-summary" id="todoSummary">—</p>
+      <div class="card-list" id="todoList"></div>
+    </section>
+  </main>
+
+  <button class="fab" id="fabBtn" aria-label="新增">+</button>
+
+  <nav class="tabbar" role="tablist">
+    <button class="tab-btn active" data-tab="itinerary" role="tab" aria-selected="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      行程
+    </button>
+    <button class="tab-btn" data-tab="shopping" role="tab" aria-selected="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.5 3h2l2.4 12.4a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.6L21 8H6"/></svg>
+      購物清單
+    </button>
+    <button class="tab-btn" data-tab="todo" role="tab" aria-selected="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      待辦
+    </button>
+  </nav>
+</div>
+
+<div class="sheet-overlay" id="sheetOverlay"></div>
+
+<!-- 行程表單 -->
+<div class="sheet" id="itinerarySheet">
+  <div class="sheet-grabber"></div>
+  <h2 id="itinerarySheetTitle">新增行程</h2>
+  <form id="itineraryForm">
+    <div class="field">
+      <label for="ti-date">日期</label>
+      <div class="input-icon-field">
+        <input type="date" id="ti-date" required>
+        <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      </div>
+    </div>
+    <div class="field">
+      <label for="ti-start">起始時間（選填）</label>
+      <div class="input-icon-field">
+        <input type="time" id="ti-start">
+        <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+      </div>
+    </div>
+    <div class="field">
+      <label for="ti-end">結束時間（選填）</label>
+      <div class="input-icon-field">
+        <input type="time" id="ti-end">
+        <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+      </div>
+    </div>
+    <div class="field">
+      <label>類別</label>
+      <div class="category-picker" id="categoryPicker"></div>
+    </div>
+    <div class="field"><label for="ti-title">行程標題</label><input type="text" id="ti-title" placeholder="例如：清水寺" required></div>
+    <div class="field"><label for="ti-map">Google 地圖連結或地名（選填）</label><input type="text" id="ti-map" placeholder="貼上地圖連結，或直接打地名"></div>
+    <div class="field"><label for="ti-note">備註（選填）</label><textarea id="ti-note" placeholder="開放時間、訂位資訊..."></textarea></div>
+    <div class="sheet-actions">
+      <button type="button" class="btn btn-delete" id="ti-delete" hidden>刪除</button>
+      <button type="button" class="btn btn-ghost" id="ti-cancel">取消</button>
+      <button type="submit" class="btn btn-primary">儲存</button>
+    </div>
+  </form>
+</div>
+
+<!-- 購物清單表單 -->
+<div class="sheet" id="shoppingSheet">
+  <div class="sheet-grabber"></div>
+  <h2 id="shoppingSheetTitle">新增購物項目</h2>
+  <form id="shoppingForm">
+    <div class="field"><label for="sh-name">品項</label><input type="text" id="sh-name" placeholder="例如：防曬乳" required></div>
+    <div class="field-row">
+      <div class="field narrow"><label for="sh-qty">數量</label><input type="number" id="sh-qty" min="1" step="1" value="1" inputmode="numeric"></div>
+      <div class="field"><label for="sh-url">參考網址（選填）</label><input type="text" id="sh-url" placeholder="https://..." inputmode="url" autocapitalize="off" autocorrect="off"></div>
+    </div>
+    <div class="field">
+      <label>參考照片（選填）</label>
+      <input type="file" accept="image/*" id="sh-image-input" hidden>
+      <div class="image-picker">
+        <button type="button" class="btn btn-ghost" id="sh-image-btn" style="flex:none;">選擇照片</button>
+        <div class="image-preview-wrap" id="sh-image-preview-wrap" hidden>
+          <img class="image-preview" id="sh-image-preview" alt="參考照片預覽">
+          <button type="button" class="image-remove" id="sh-image-remove" aria-label="移除照片">✕</button>
+        </div>
+      </div>
+    </div>
+    <div class="field"><label for="sh-note">備註（選填）</label><input type="text" id="sh-note" placeholder="例如：藥妝店買、比價中"></div>
+    <div class="sheet-actions">
+      <button type="button" class="btn btn-delete" id="sh-delete" hidden>刪除</button>
+      <button type="button" class="btn btn-ghost" id="sh-cancel">取消</button>
+      <button type="submit" class="btn btn-primary">儲存</button>
+    </div>
+  </form>
+</div>
+
+<!-- 待辦表單 -->
+<div class="sheet" id="todoSheet">
+  <div class="sheet-grabber"></div>
+  <h2 id="todoSheetTitle">新增待辦</h2>
+  <form id="todoForm">
+    <div class="field"><label for="td-title">要準備什麼</label><input type="text" id="td-title" placeholder="例如：辦國際駕照" required></div>
+    <div class="field">
+      <label for="td-due">期限／訂購注意日期（選填）</label>
+      <div class="input-icon-field">
+        <input type="date" id="td-due">
+        <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      </div>
+    </div>
+    <div class="field">
+      <label>分類標籤</label>
+      <div class="category-picker" id="todoCategoryPicker"></div>
+    </div>
+    <div class="field"><label for="td-note">備註（選填）</label><textarea id="td-note" placeholder="例如：早鳥票 8/31 前訂便宜 2000"></textarea></div>
+    <div class="sheet-actions">
+      <button type="button" class="btn btn-delete" id="td-delete" hidden>刪除</button>
+      <button type="button" class="btn btn-ghost" id="td-cancel">取消</button>
+      <button type="submit" class="btn btn-primary">儲存</button>
+    </div>
+  </form>
+</div>
+
+<!-- 資料保存 / 備份 / 還原 -->
+<div class="sheet" id="backupSheet">
+  <div class="sheet-grabber"></div>
+  <h2>資料保存狀態</h2>
+
+  <div class="verdict checking" id="verdict"><div class="verdict-title">檢查中…</div></div>
+
+  <div class="storage-layer">
+    <div class="sync-badge" id="syncBadge">檢查中…</div>
+    <p class="hint" id="syncHint">—</p>
+  </div>
+  <div class="storage-layer">
+    <div class="sync-badge" id="localBadge">檢查中…</div>
+    <p class="hint" id="localHint">—</p>
+  </div>
+
+  <h2 style="margin-top:22px;">備份與還原</h2>
+  <p class="hint">最保險的一層：把資料存成檔案放進手機的「檔案」App，完全在你手上。建議出發前後各做一次。</p>
+  <div class="field">
+    <button type="button" class="btn btn-primary" id="downloadBtn" style="width:100%">下載備份檔</button>
+  </div>
+  <div class="field">
+    <input type="file" accept=".json,application/json" id="restoreFileInput" hidden>
+    <button type="button" class="btn btn-ghost" id="restoreFileBtn" style="width:100%">從備份檔還原（會覆蓋目前資料）</button>
+  </div>
+
+  <h2 style="margin-top:22px;">自動存檔點</h2>
+  <p class="hint">這一層不用你動手：每次打開 APP 只要資料有變動，就會自動留一份快照，最多保留 5 份。誤刪或改壞時可以直接跳回去。</p>
+  <div id="snapshotList"></div>
+
+  <details class="advanced">
+    <summary>技術診斷（雲端存不進去時，把這裡的內容回報給我）</summary>
+    <div class="diag" id="diagBox">—</div>
+    <button type="button" class="btn btn-ghost" id="copyDiagBtn" style="width:100%">複製診斷資訊</button>
+  </details>
+
+  <details class="advanced">
+    <summary>用文字備份（進階）</summary>
+    <div class="field" style="margin-top:12px;">
+      <label>匯出（目前資料）</label>
+      <textarea class="backup-textarea" id="exportArea" readonly></textarea>
+      <button type="button" class="btn btn-ghost" id="copyBtn" style="width:100%">複製到剪貼簿</button>
+    </div>
+    <div class="field" style="margin-top:18px;">
+      <label>匯入（貼上先前備份的文字）</label>
+      <textarea class="backup-textarea" id="importArea" placeholder="貼上備份文字..."></textarea>
+      <button type="button" class="btn btn-primary" id="importBtn" style="width:100%">還原這份資料（會覆蓋目前資料）</button>
+    </div>
+  </details>
+
+  <div class="sheet-actions" style="margin-top:16px;">
+    <button type="button" class="btn btn-ghost" id="backup-close" style="width:100%">關閉</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   旅程手帳 — 前端邏輯
+   全部資料都存在瀏覽器的 localStorage 裡（等於手機上這個網頁
+   自己的一個小盒子），不會傳到任何伺服器，也不需要網路。
+   兩份資料：trips（行程）、shopping（購物清單）
+   ============================================================ */
+
+// 行程類別：固定順序、固定顏色（來自色盲安全的分類色盤），每個類別配一個
+// 簡單的 icon，之後要加新類別就在這個陣列後面加一筆就好。
+const CATEGORY_DEFS = [
+  { key: 'sight', label: '景點', color: 'var(--cat-sight)',
+    icon: '<rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7l1.2-2.4A1 1 0 0 1 10.1 4h3.8a1 1 0 0 1 .9.6L16 7"/><circle cx="12" cy="13" r="3.2"/>' },
+  { key: 'food', label: '餐飲', color: 'var(--cat-food)',
+    icon: '<path d="M5 2v6M8 2v6M6.5 2v6M6.5 8v14"/><path d="M17 2c-2 0-3 2-3 5s1 4 3 4v11"/>' },
+  { key: 'activity', label: '體驗', color: 'var(--cat-activity)',
+    icon: '<path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"/><path d="M9 6v3M9 15v3" stroke-dasharray="2 2"/>' },
+  { key: 'shop', label: '購物', color: 'var(--cat-shop)',
+    icon: '<path d="M6 8h12l-1 12H7L6 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>' },
+  { key: 'stay', label: '住宿', color: 'var(--cat-stay)',
+    icon: '<path d="M3 18v-6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v3"/><path d="M3 14h18v4"/><path d="M21 18v-4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2"/><path d="M3 21v-3M21 21v-3"/>' },
+  { key: 'transport', label: '交通', color: 'var(--cat-transport)',
+    icon: '<path d="M4 12h13M13 6l6 6-6 6"/>' },
+  { key: 'other', label: '其他', color: 'var(--cat-other)',
+    icon: '<circle cx="6" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18" cy="12" r="1.4"/>' },
+];
+const CATEGORY_MAP = Object.fromEntries(CATEGORY_DEFS.map((c) => [c.key, c]));
+function categoryDef(key) {
+  return CATEGORY_MAP[key] || CATEGORY_DEFS[0];
+}
+
+// 待辦（出發前要準備的事）的分類標籤。順序就是表單上顯示的順序，
+// 要加新類別在後面加一筆、順便在 CSS 補一個 --todo-xxx 顏色即可。
+const TODO_DEFS = [
+  { key: 'doc', label: '證件', color: 'var(--todo-doc)',
+    icon: '<rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="10" r="2.6"/><path d="M8.5 17c.9-1.6 2.1-2.4 3.5-2.4s2.6.8 3.5 2.4"/>' },
+  { key: 'ticket', label: '訂票', color: 'var(--todo-ticket)',
+    icon: '<path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2 2 2 0 0 0 0 4 2 2 0 0 1-2 2H5a2 2 0 0 1-2-2 2 2 0 0 0 0-4z"/><path d="M14 7v10" stroke-dasharray="2 2"/>' },
+  { key: 'net', label: '網路', color: 'var(--todo-net)',
+    icon: '<path d="M2 8.5a16 16 0 0 1 20 0"/><path d="M5 12a11 11 0 0 1 14 0"/><path d="M8.5 15.5a6 6 0 0 1 7 0"/><circle cx="12" cy="19" r="1"/>' },
+  { key: 'money', label: '換匯', color: 'var(--todo-money)',
+    icon: '<circle cx="12" cy="12" r="9"/><path d="M9 9.5c0-1.1 1.3-2 3-2s3 .9 3 2-1.3 2-3 2-3 .9-3 2 1.3 2 3 2 3-.9 3-2"/><path d="M12 6v12"/>' },
+  { key: 'stay', label: '住宿', color: 'var(--todo-stay)',
+    icon: '<path d="M3 18v-6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v3"/><path d="M3 14h18v4"/><path d="M21 18v-4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2"/><path d="M3 21v-3M21 21v-3"/>' },
+  { key: 'insure', label: '保險', color: 'var(--todo-insure)',
+    icon: '<path d="M12 3l7 3v5.5c0 4.2-2.9 7.9-7 9.5-4.1-1.6-7-5.3-7-9.5V6z"/><path d="M9.2 12.2l2 2 3.6-3.8"/>' },
+  { key: 'pack', label: '行李', color: 'var(--todo-pack)',
+    icon: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M9 11v5M15 11v5"/>' },
+  { key: 'misc', label: '其他', color: 'var(--todo-misc)',
+    icon: '<path d="M4 7h16M4 12h16M4 17h10"/>' },
+];
+const TODO_MAP = Object.fromEntries(TODO_DEFS.map((c) => [c.key, c]));
+function todoDef(key) {
+  return TODO_MAP[key] || TODO_DEFS[0];
+}
+
+const STORAGE_KEYS = {
+  trips: 'travelnote_trips_v1',
+  shopping: 'travelnote_shopping_v1',
+  expenses: 'travelnote_expenses_v1',
+  todos: 'travelnote_todos_v1',
+};
+// 這個路徑是「這個網頁自己的資料檔」，透過 Claude 的雲端能力保存，
+// 只要是用同一個網址打開（且有登入同一個 Claude 帳號），不管清過
+// 幾次 Safari 資料都找得回來 —— 這就是「存在個人帳號」的那一層。
+const CLOUD_DATA_PATH = 'data/state.json';
+
+/* ---------------- 本機儲存：IndexedDB（主）+ localStorage（備） ----------------
+   為什麼要換成 IndexedDB？
+   iOS Safari 有一個叫 ITP 的隱私機制：如果你「連續 7 天沒有打開這個網站」，
+   它會把這個網站用 localStorage 存的東西整包刪掉。這就是為什麼你會覺得
+   「紀錄過一陣子就不見了」——不是程式壞掉，是 Safari 主動清掉的。
+   兩個對策，這裡都做了：
+   1. 改用 IndexedDB 當主要儲存，並且呼叫 navigator.storage.persist()
+      向瀏覽器申請「持久化」授權。拿到授權後，這份資料就不會被自動清除。
+      （把網頁「加入主畫面」後再打開，iOS 幾乎都會直接核准這個申請，
+        所以強烈建議從主畫面的圖示開啟，而不是每次都在 Safari 分頁裡開。）
+   2. 同時仍然寫一份到 localStorage 當備援，兩邊哪一邊還在就能救回來。
+------------------------------------------------------------------------ */
+const IDB_NAME = 'travelnote';
+const IDB_STORE = 'state';
+const IDB_KEY = 'main';
+let idbPromise = null;
+let persistGranted = false;
+
+function openIdb() {
+  if (idbPromise) return idbPromise;
+  idbPromise = new Promise((resolve) => {
+    try {
+      if (!('indexedDB' in window)) return resolve(null);
+      const req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE);
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+      // 無痕模式下 IndexedDB 有時候會卡住不回應，5 秒沒消息就當作沒有
+      setTimeout(() => resolve(null), 5000);
+    } catch (e) {
+      resolve(null);
+    }
+  });
+  return idbPromise;
+}
+
+async function idbGet() {
+  const db = await openIdb();
+  if (!db) return null;
+  return new Promise((resolve) => {
+    try {
+      const req = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE).get(IDB_KEY);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    } catch (e) { resolve(null); }
+  });
+}
+
+async function idbSet(value, key) {
+  const db = await openIdb();
+  if (!db) return false;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(value, key || IDB_KEY);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+      tx.onabort = () => resolve(false);
+    } catch (e) { resolve(false); }
+  });
+}
+
+async function idbGetKey(key) {
+  const db = await openIdb();
+  if (!db) return null;
+  return new Promise((resolve) => {
+    try {
+      const req = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE).get(key);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    } catch (e) { resolve(null); }
+  });
+}
+
+/* ---------------- 自動存檔點（時光機） ----------------
+   這一層完全不需要你動手：每次打開 APP，如果資料跟上一個存檔點不一樣，
+   就自動留一份當時的快照，最多保留 5 份。做壞了、誤刪了、或想看看兩天前
+   的版本長怎樣，都可以直接還原回去。
+   注意：這是存在手機裡的，防的是「操作失誤」；防不了 Safari 清資料，
+   那個還是要靠下載備份檔或雲端。 */
+const SNAP_KEY = 'snapshots';
+const SNAP_MAX = 5;
+
+function snapshotSignature(s) {
+  // 只比對「內容有沒有變」，不含時間戳，否則每次開啟都會被當成有變動
+  try {
+    return JSON.stringify({ t: s.trips, s: s.shopping, e: s.expenses, d: s.todos });
+  } catch (e) { return ''; }
+}
+
+async function maybeSnapshot(reason) {
+  try {
+    const list = (await idbGetKey(SNAP_KEY)) || [];
+    const sig = snapshotSignature(state);
+    if (!state.trips.length && !state.shopping.length && !state.todos.length) return;  // 空的不用存
+    if (list.length && list[0].sig === sig) return;              // 內容沒變就不重複存
+    list.unshift({
+      at: new Date().toISOString(),
+      reason: reason || 'open',
+      sig,
+      trips: state.trips,
+      shopping: state.shopping,
+      expenses: state.expenses,
+      todos: state.todos,
+    });
+    await idbSet(list.slice(0, SNAP_MAX), SNAP_KEY);
+  } catch (e) {
+    // 存檔點是額外保險，失敗就算了，不能影響主要功能
+  }
+}
+
+// 向瀏覽器申請「這份資料請不要自動清除」。iOS 對已加入主畫面的網頁
+// 幾乎都會核准；純 Safari 分頁裡常被拒絕，那就靠雲端那層保護。
+// 分三種結果：granted（鎖定成功）／denied（被拒絕）／unsupported
+// （這個瀏覽器根本沒有這個功能，不是失敗，只是沒得申請）。
+let persistState = 'unsupported';
+async function requestPersistentStorage() {
+  try {
+    if (!navigator.storage || !navigator.storage.persisted) {
+      persistState = 'unsupported';
+    } else {
+      let ok = await navigator.storage.persisted();
+      if (!ok && navigator.storage.persist) ok = await navigator.storage.persist();
+      persistState = ok ? 'granted' : 'denied';
+    }
+  } catch (e) {
+    persistState = 'unsupported';
+  }
+  persistGranted = persistState === 'granted';
+}
+
+// 加入主畫面之後，同一個網址再打開時系統才會核准鎖定，所以每次
+// 從背景切回來都重新問一次，狀態才會自己變綠，不用重灌 APP。
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible' && persistState !== 'granted') {
+    await requestPersistentStorage();
+    updateSyncBadge();
+  }
+});
+
+// 讀取 localStorage，失敗（例如無痕模式）就回傳空陣列，不讓整個 APP 掛掉
+function loadList(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+function saveListLocal(key, list) {
+  try {
+    localStorage.setItem(key, JSON.stringify(list));
+  } catch (e) {
+    // 本機空間可能被鎖住（例如無痕模式）；其他層不受影響，忽略即可
+  }
+}
+
+// 把舊版資料（只有一個 time 欄位）轉成新的「起始時間／結束時間」格式，
+// 這樣以前存的行程打開時不會不見。
+function normalizeTrip(t) {
+  return {
+    id: t.id,
+    date: t.date,
+    startTime: t.startTime ?? t.time ?? '',
+    endTime: t.endTime ?? '',
+    category: CATEGORY_MAP[t.category] ? t.category : 'sight',
+    title: t.title ?? '',
+    map: t.map ?? '',
+    note: t.note ?? '',
+  };
+}
+function normalizeTodo(t) {
+  return {
+    id: t.id || uid(),
+    title: t.title ?? '',
+    category: TODO_MAP[t.category] ? t.category : 'misc',
+    dueDate: t.dueDate ?? '',
+    note: t.note ?? '',
+    done: !!t.done,
+  };
+}
+function normalizeState(raw) {
+  return {
+    trips: Array.isArray(raw && raw.trips) ? raw.trips.map(normalizeTrip) : [],
+    shopping: Array.isArray(raw && raw.shopping) ? raw.shopping : [],
+    expenses: Array.isArray(raw && raw.expenses) ? raw.expenses : [],
+    todos: Array.isArray(raw && raw.todos) ? raw.todos.map(normalizeTodo) : [],
+  };
+}
+
+const state = { trips: [], shopping: [], expenses: [], todos: [] };
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function fmtDate(dateStr) {
+  if (!dateStr) return '';
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const weekday = ['日', '一', '二', '三', '四', '五', '六'][new Date(y, m - 1, d).getDay()];
+  return `${m}/${d}（${weekday}）`;
+}
+
+// 把使用者填的「Google 地圖連結或地名」轉成一個真的可以點的網址。
+// 如果本來就是網址（http/https 開頭）就直接用；
+// 如果只是打「清水寺」這種地名，就幫他組成 Google 地圖搜尋連結。
+function mapHref(value) {
+  if (!value) return null;
+  const v = value.trim();
+  if (!v) return null;
+  if (/^https?:\/\//i.test(v)) return v;
+  return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(v);
+}
+
+function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+/* ---------------- 三層保存 ----------------
+   每次新增／編輯／刪除／打勾都會：
+   1. 立刻寫進 IndexedDB + localStorage（這支手機馬上看得到，離線也能用）
+   2. 排一個「安靜 1.2 秒後」才送出的雲端保存（避免連按時狂送）
+   3. 離開頁面（切到背景／關分頁）時，若還有沒送出的變更就立刻補送
+   雲端那層綁的是你的 Claude 帳號：只要用同一個帳號打開這個網址，
+   就算手機整支換掉、Safari 資料清光，資料都還在。
+------------------------------------------------- */
+let artifactCap = null;
+let cloudSaveTimer = null;
+let cloudDirty = false;         // 有變更還沒成功送上雲端
+let cloudStatus = 'checking';   // checking | on | readonly | off
+let lastCloudSavedAt = null;
+
+// 診斷資訊：雲端存不進去時，把「到底卡在哪一步」記下來，
+// 這樣不用猜，直接看備份頁最底下的「技術診斷」就知道原因。
+const diag = {
+  hasClaude: false,
+  hasUse: false,
+  gotNamespace: false,
+  route: '—',
+  lastError: '—',
+  href: '—',
+};
+
+async function initCloud() {
+  diag.hasClaude = !!window.claude;
+  diag.hasUse = !!(window.claude && typeof window.claude.use === 'function');
+  try { diag.href = location.href; } catch (e) {}
+
+  // 取得雲端寫入能力的四種管道，依序試：新版 use('artifact')、
+  // 舊名 use('self')，以及更舊版本直接掛在 window.claude 上的寫法。
+  // 之前只試第一種，如果這個 APP 跑在較舊的執行環境上就會直接放棄。
+  try {
+    if (window.claude) {
+      if (typeof window.claude.use === 'function') {
+        artifactCap = await window.claude.use('artifact');
+        if (artifactCap) diag.route = "use('artifact')";
+        if (!artifactCap) {
+          artifactCap = await window.claude.use('self');
+          if (artifactCap) diag.route = "use('self')";
+        }
+      }
+      if (!artifactCap && window.claude.artifact) {
+        artifactCap = window.claude.artifact;
+        diag.route = 'window.claude.artifact';
+      }
+      if (!artifactCap && window.claude.self) {
+        artifactCap = window.claude.self;
+        diag.route = 'window.claude.self';
+      }
+    }
+  } catch (e) {
+    diag.lastError = 'use() 例外：' + (e && e.message ? e.message : e);
+    artifactCap = null;
+  }
+  diag.gotNamespace = !!artifactCap;
+  if (!artifactCap && diag.lastError === '—') {
+    diag.lastError = diag.hasClaude
+      ? (diag.hasUse ? '取得能力回傳 null（這個畫面沒有被授予寫入權）' : 'window.claude 存在但沒有 use()（執行環境版本較舊）')
+      : '這個頁面沒有 window.claude（不是從 claude.ai 開啟，或是自架版本）';
+  }
+  // 重要：claude.use('artifact') 有拿到東西，不代表這個畫面「寫得進去」。
+  // 唯讀的觀看者一樣拿得到，只有真的送出時才會被拒絕。之前就是因為只看
+  // 有沒有拿到能力就顯示「已啟用」，結果每次存檔其實都被拒絕、卻靜靜地
+  // 失敗，難怪資料還是會不見。這裡改成開頁時就真的寫一次來驗證。
+  cloudStatus = artifactCap ? 'checking' : 'off';
+  updateSyncBadge();
+}
+
+async function saveAllLocal() {
+  saveListLocal(STORAGE_KEYS.trips, state.trips);
+  saveListLocal(STORAGE_KEYS.shopping, state.shopping);
+  saveListLocal(STORAGE_KEYS.expenses, state.expenses);
+  saveListLocal(STORAGE_KEYS.todos, state.todos);
+  await idbSet({
+    trips: state.trips,
+    shopping: state.shopping,
+    expenses: state.expenses,
+    todos: state.todos,
+    savedAt: new Date().toISOString(),
+  });
+}
+
+function persist() {
+  saveAllLocal();
+  updateBackupNag();   // 剛新增第一筆資料時就要提醒，不用等雲端那邊回應
+  if (!artifactCap) return;
+  cloudDirty = true;
+  clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = setTimeout(() => doCloudSave(false), 1200);
+}
+
+function cloudPayload() {
+  return JSON.stringify({
+    trips: state.trips,
+    shopping: state.shopping,
+    expenses: state.expenses,
+    todos: state.todos,
+    savedAt: new Date().toISOString(),
+  }, null, 2);
+}
+
+async function doCloudSave(isRetry) {
+  if (!artifactCap) return;
+  try {
+    await artifactCap.publish({ [CLOUD_DATA_PATH]: cloudPayload() });
+    cloudDirty = false;
+    lastCloudSavedAt = new Date();
+    cloudStatus = 'on';
+  } catch (err) {
+    const code = err && err.code;
+    diag.lastError = `publish 被拒絕：${code || '(無代碼)'}${err && err.message ? ' — ' + err.message : ''}`;
+    if (code === 'upstream_error' && !isRetry) {
+      setTimeout(() => doCloudSave(true), 1500 + Math.random() * 1000);
+      return;
+    }
+    if (code === 'not_writer' || code === 'not_granted' || code === 'consent_required') {
+      // 這個畫面看得到但寫不進去（例如不是用你自己的帳號開的、或是別人分享給你的）
+      cloudStatus = 'readonly';
+    } else if (code === 'capability_disabled' || code === 'capability_removed' || code === 'not_declared') {
+      // 實測在 iPhone Safari 開啟時會走到這裡：這個執行環境直接把
+      // 雲端寫入關掉了，不是登入問題，重試也不會變。
+      cloudStatus = 'blocked';
+    } else if (code === 'too_large') {
+      cloudStatus = 'on';
+      showToast('資料太大（可能是照片太多），這次雲端保存失敗，本機仍有保存');
+    }
+    // conflict／rate_limited：不重試，下一次操作觸發 persist() 時會再送一次
+  }
+  updateSyncBadge();
+}
+
+// 離開／切到背景時把還沒送出的變更補送掉，避免「剛改完就關掉」而漏存
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && cloudDirty) {
+    clearTimeout(cloudSaveTimer);
+    doCloudSave(false);
+  }
+});
+window.addEventListener('pagehide', () => {
+  if (cloudDirty) {
+    clearTimeout(cloudSaveTimer);
+    doCloudSave(false);
+  }
+});
+
+function updateSyncBadge() {
+  const el = document.getElementById('syncBadge');
+  const hint = document.getElementById('syncHint');
+  const localEl = document.getElementById('localBadge');
+  const localHint = document.getElementById('localHint');
+  const chip = document.getElementById('syncChip');
+
+  if (chip) {
+    if (cloudStatus === 'on') { chip.textContent = '☁️ 已同步'; chip.className = 'sync-chip on'; }
+    else if (cloudStatus === 'checking') { chip.textContent = '檢查中'; chip.className = 'sync-chip checking'; }
+    else { chip.textContent = '⚠️ 未同步'; chip.className = 'sync-chip off'; }
+  }
+
+  if (el) {
+    if (cloudStatus === 'on') {
+      el.textContent = '☁️ 雲端保存運作中';
+      el.className = 'sync-badge on';
+      if (hint) hint.textContent = lastCloudSavedAt
+        ? `資料已存到你的 Claude 帳號（最後一次 ${lastCloudSavedAt.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}）。換手機、清除 Safari 資料都不會不見，用同一個帳號打開這個網址就找得回來。`
+        : '資料會存到你的 Claude 帳號。換手機、清除 Safari 資料都不會不見，用同一個帳號打開這個網址就找得回來。';
+    } else if (cloudStatus === 'readonly') {
+      el.textContent = '⚠️ 雲端保存被拒絕';
+      el.className = 'sync-badge off';
+      if (hint) hint.textContent = '這個畫面打得開但寫不進去，通常是因為沒有登入、或登入的不是當初建立這個 APP 的 Claude 帳號。請在 Safari 先登入 claude.ai 再重新打開，資料才會存進帳號。';
+    } else if (cloudStatus === 'checking') {
+      el.textContent = '檢查中…';
+      el.className = 'sync-badge checking';
+      if (hint) hint.textContent = '正在確認雲端保存是否可用。';
+    } else if (cloudStatus === 'blocked') {
+      el.textContent = '⛔ 這個環境不允許雲端保存';
+      el.className = 'sync-badge off';
+      if (hint) hint.textContent = '在 iPhone 上，這個 APP 是跑在 claude.ai 的沙箱框架裡，該環境直接關閉了雲端寫入。這不是登入問題，重試或重登也不會改變。要有真正的雲端保存，需要把 APP 搬到自己的網址（我已經幫你準備好整包檔案與教學）。';
+    } else {
+      el.textContent = '雲端保存不可用';
+      el.className = 'sync-badge off';
+      if (hint) hint.textContent = '這個版本沒有雲端保存（例如你自己另外架站的版本）。請務必定期用下面的「下載備份檔」保存一份。';
+    }
+  }
+
+  if (localEl) {
+    if (persistState === 'granted') {
+      localEl.textContent = '📱 手機儲存已鎖定';
+      localEl.className = 'sync-badge on';
+      if (localHint) localHint.textContent = '瀏覽器已同意不自動清除這份資料，就算一陣子沒打開也不會被回收。';
+    } else if (persistState === 'denied') {
+      localEl.textContent = '📱 手機儲存未鎖定';
+      localEl.className = 'sync-badge warn';
+      if (localHint) localHint.textContent = '瀏覽器目前不給鎖定，通常是因為在 Safari 分頁裡開啟。把這個網頁「加入主畫面」、之後固定從桌面圖示打開，多半就會自動核准（切出去再切回來這裡會自己更新）。';
+    } else {
+      localEl.textContent = '📱 手機儲存無法鎖定';
+      localEl.className = 'sync-badge warn';
+      if (localHint) localHint.textContent = '這個瀏覽器沒有提供「鎖定儲存」的功能，不是設定錯誤。經常打開這個 APP 可以讓資料一直被視為使用中而不被回收；真正的保障請看上面的雲端層與下面的備份檔。';
+    }
+  }
+
+  updateVerdict();
+  updateBackupNag();
+}
+
+/* 綜合判斷：與其讓你盯著兩個技術指標猜，直接回答一句
+   「我的資料現在安全嗎？」。重點是——只要雲端層是通的，
+   手機層有沒有鎖定其實都不影響資料會不會不見。 */
+function lastBackupText() {
+  try {
+    const t = localStorage.getItem('travelnote_last_backup');
+    if (!t) return null;
+    const d = new Date(t);
+    const days = Math.floor((Date.now() - d.getTime()) / 86400000);
+    if (days <= 0) return '今天';
+    if (days === 1) return '昨天';
+    return `${days} 天前`;
+  } catch (e) { return null; }
+}
+
+function updateVerdict() {
+  const box = document.getElementById('verdict');
+  if (!box) return;
+  const backup = lastBackupText();
+  const backupLine = backup ? `最近一次下載備份檔：${backup}。` : '你還沒有下載過備份檔。';
+
+  if (cloudStatus === 'on') {
+    box.className = 'verdict safe';
+    box.innerHTML = `<div class="verdict-title">✅ 資料是安全的</div>
+      <p>已經存進你的 Claude 帳號。就算手機儲存沒有鎖定、Safari 把本機資料清掉，
+      只要用同一個帳號打開這個網址，資料都會回來。
+      <strong>手機儲存有沒有鎖定，在這個情況下不影響安全性</strong>，它只是讓離線讀取更順而已。</p>
+      <p class="verdict-sub">${backupLine}出遠門前還是建議手動下載一份，多一層保險。</p>`;
+  } else if (cloudStatus === 'checking') {
+    box.className = 'verdict checking';
+    box.innerHTML = `<div class="verdict-title">檢查中…</div><p>正在確認保存狀態。</p>`;
+  } else if (persistState === 'granted') {
+    box.className = 'verdict warn';
+    box.innerHTML = `<div class="verdict-title">⚠️ 只存在這支手機裡</div>
+      <p>雲端那層目前沒有運作，但手機儲存已鎖定，所以資料不會被 Safari 自動清掉。
+      風險是：<strong>換手機、手機遺失、或手動刪除瀏覽資料，資料就沒了。</strong></p>
+      <p class="verdict-sub">${backupLine}請先下載一份備份檔，再照上面雲端層的說明處理。</p>`;
+  } else {
+    box.className = 'verdict risk';
+    box.innerHTML = `<div class="verdict-title">🚨 請養成下載備份檔的習慣</div>
+      <p>這個環境（claude.ai 的沙箱框架）同時擋掉了雲端保存與手機儲存鎖定，
+      所以 iOS 可能在你一段時間沒打開後把資料清掉——這就是你之前遇到的狀況。</p>
+      <p><strong>目前唯一可靠的保存方式是下面的「下載備份檔」。</strong>每次規劃完行程就按一次，
+      檔案會存進手機的「檔案」App，之後隨時可以從備份檔還原。</p>
+      <p class="verdict-sub">${backupLine}想要真正的自動保存，需要把 APP 搬到自己的網址（免費），詳見我給你的架站教學。</p>`;
+  }
+}
+
+// 開啟頁面時把三個來源（雲端、IndexedDB、localStorage）都讀出來，
+// 用存檔時間挑最新的那一份。這樣不管是哪一層被清掉、或哪一層曾經
+// 存失敗過，只要還有任何一層活著，資料就救得回來。
+function stateTimestamp(s) {
+  const t = s && s.savedAt ? Date.parse(s.savedAt) : NaN;
+  return Number.isFinite(t) ? t : 0;
+}
+function hasAnyData(s) {
+  if (!s) return false;
+  return (Array.isArray(s.trips) && s.trips.length)
+    || (Array.isArray(s.shopping) && s.shopping.length)
+    || (Array.isArray(s.expenses) && s.expenses.length)
+    || (Array.isArray(s.todos) && s.todos.length);
+}
+
+async function hydrateState() {
+  let cloudState = null;
+  if (artifactCap) {
+    try {
+      const res = await fetch(CLOUD_DATA_PATH, { cache: 'no-store' });
+      if (res.ok) cloudState = await res.json();
+    } catch (e) {
+      // 還沒有雲端資料，或暫時連不上
+    }
+  }
+  const idbState = await idbGet();
+  const localState = {
+    trips: loadList(STORAGE_KEYS.trips),
+    shopping: loadList(STORAGE_KEYS.shopping),
+    expenses: loadList(STORAGE_KEYS.expenses),
+    todos: loadList(STORAGE_KEYS.todos),
+  };
+
+  // 有存檔時間的優先比時間；localStorage 沒有時間戳，當成最舊的墊底來源
+  const candidates = [cloudState, idbState].filter(hasAnyData);
+  let chosen = null;
+  if (candidates.length) {
+    chosen = candidates.reduce((a, b) => (stateTimestamp(b) > stateTimestamp(a) ? b : a));
+  } else if (hasAnyData(localState)) {
+    chosen = localState;
+  }
+
+  Object.assign(state, normalizeState(chosen || {}));
+
+  // 把挑到的那份補寫回其他層，讓三層重新對齊
+  await saveAllLocal();
+
+  // 真正驗證雲端寫得進去：直接寫一次目前的資料。成功就代表帳號保存
+  // 真的在運作；失敗會在 doCloudSave 裡把狀態改成「被拒絕」讓你看到，
+  // 而不是像之前那樣顯示「已啟用」卻其實一直存不進去。
+  if (artifactCap) await doCloudSave(false);
+}
+
+/* ---------------- Tab 切換 ---------------- */
+const tabs = ['itinerary', 'shopping', 'todo'];
+let currentTab = 'itinerary';
+
+document.querySelectorAll('.tab-btn').forEach((btn) => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach((b) => {
+    const active = b.dataset.tab === tab;
+    b.classList.toggle('active', active);
+    b.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+  tabs.forEach((t) => {
+    document.getElementById('panel-' + t).hidden = t !== tab;
+  });
+  updateHeaderSub();
+}
+
+function updateHeaderSub() {
+  const sub = document.getElementById('headerSub');
+  if (currentTab === 'itinerary') {
+    const n = state.trips.length;
+    const days = new Set(state.trips.map((t) => t.date)).size;
+    sub.textContent = n ? `共 ${days} 天・${n} 個行程` : '還沒有任何行程';
+  } else if (currentTab === 'shopping') {
+    const done = state.shopping.filter((s) => s.done).length;
+    sub.textContent = state.shopping.length ? `已購買 ${done} / ${state.shopping.length}` : '清單是空的';
+  } else {
+    const open = state.todos.filter((t) => !t.done);
+    const over = open.filter((t) => dueInfo(t).level === 'over').length;
+    if (!state.todos.length) sub.textContent = '還沒有待辦事項';
+    else if (over) sub.textContent = `還有 ${open.length} 件待辦・${over} 件已過期`;
+    else sub.textContent = open.length ? `還有 ${open.length} 件待辦` : '待辦都完成了 🎉';
+  }
+  updateTodoTabBadge();
+}
+
+// 分頁列上的數字紅點：有「已過期」或「今天到期」的待辦時才亮，
+// 這樣不用切過去也知道有東西該處理了
+function updateTodoTabBadge() {
+  const btn = document.querySelector('.tab-btn[data-tab="todo"]');
+  if (!btn) return;
+  const urgent = state.todos.filter((t) => {
+    if (t.done) return false;
+    const lv = dueInfo(t).level;
+    return lv === 'over' || lv === 'today';
+  }).length;
+  let dot = btn.querySelector('.tab-badge');
+  if (urgent) {
+    if (!dot) {
+      dot = document.createElement('span');
+      dot.className = 'tab-badge';
+      btn.appendChild(dot);
+    }
+    dot.textContent = urgent > 9 ? '9+' : String(urgent);
+  } else if (dot) {
+    dot.remove();
+  }
+}
+
+/* ---------------- Sheet（底部表單）開關 ---------------- */
+const overlay = document.getElementById('sheetOverlay');
+let activeSheetId = null;
+
+function openSheet(id) {
+  document.querySelectorAll('.sheet.open').forEach((s) => s.classList.remove('open'));
+  activeSheetId = id;
+  overlay.classList.add('open');
+  requestAnimationFrame(() => document.getElementById(id).classList.add('open'));
+}
+function closeSheet() {
+  if (activeSheetId) document.getElementById(activeSheetId).classList.remove('open');
+  overlay.classList.remove('open');
+  activeSheetId = null;
+}
+overlay.addEventListener('click', closeSheet);
+
+// 「刪除」按鈕統一套用「按兩次才真的刪除」的保護機制，避免手滑刪掉資料
+function armDeleteButton(btn, onConfirm) {
+  let armed = false;
+  let timer = null;
+  const originalLabel = btn.textContent;
+  btn.addEventListener('click', () => {
+    if (!armed) {
+      armed = true;
+      btn.textContent = '再按一次確認刪除';
+      timer = setTimeout(() => { armed = false; btn.textContent = originalLabel; }, 3000);
+    } else {
+      clearTimeout(timer);
+      armed = false;
+      btn.textContent = originalLabel;
+      onConfirm();
+    }
+  });
+}
+
+/* ---------------- FAB：依目前分頁開對應的新增表單 ---------------- */
+document.getElementById('fabBtn').addEventListener('click', () => {
+  if (currentTab === 'itinerary') openItinerarySheet(null);
+  else if (currentTab === 'shopping') openShoppingSheet(null);
+  else openTodoSheet(null);
+});
+
+document.getElementById('backupBtn').addEventListener('click', openBackupSheet);
+document.getElementById('syncChip').addEventListener('click', openBackupSheet);
+document.getElementById('backup-close').addEventListener('click', closeSheet);
+
+/* ================= 行程 Itinerary ================= */
+let editingTripId = null;
+const tiForm = document.getElementById('itineraryForm');
+const tiDelete = document.getElementById('ti-delete');
+
+// 類別選擇器：按鈕只畫一次，之後開表單只是切換 .selected 樣式
+let selectedCategory = CATEGORY_DEFS[0].key;
+const categoryPickerEl = document.getElementById('categoryPicker');
+categoryPickerEl.innerHTML = CATEGORY_DEFS.map((c) => `
+  <button type="button" class="cat-option" data-cat="${c.key}" style="--cat-color:${c.color}">
+    <span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${c.icon}</svg></span>
+    ${c.label}
+  </button>
+`).join('');
+function setSelectedCategory(key) {
+  selectedCategory = CATEGORY_MAP[key] ? key : CATEGORY_DEFS[0].key;
+  categoryPickerEl.querySelectorAll('.cat-option').forEach((btn) => {
+    btn.classList.toggle('selected', btn.dataset.cat === selectedCategory);
+  });
+}
+categoryPickerEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('.cat-option');
+  if (btn) setSelectedCategory(btn.dataset.cat);
+});
+
+function openItinerarySheet(trip) {
+  editingTripId = trip ? trip.id : null;
+  document.getElementById('itinerarySheetTitle').textContent = trip ? '編輯行程' : '新增行程';
+  document.getElementById('ti-date').value = trip ? trip.date : todayStr();
+  document.getElementById('ti-start').value = trip ? (trip.startTime || '') : '';
+  document.getElementById('ti-end').value = trip ? (trip.endTime || '') : '';
+  setSelectedCategory(trip ? trip.category : CATEGORY_DEFS[0].key);
+  document.getElementById('ti-title').value = trip ? trip.title : '';
+  document.getElementById('ti-map').value = trip ? (trip.map || '') : '';
+  document.getElementById('ti-note').value = trip ? (trip.note || '') : '';
+  tiDelete.hidden = !trip;
+  openSheet('itinerarySheet');
+}
+document.getElementById('ti-cancel').addEventListener('click', closeSheet);
+armDeleteButton(tiDelete, () => {
+  state.trips = state.trips.filter((t) => t.id !== editingTripId);
+  persist();
+  closeSheet();
+  renderItinerary();
+  showToast('行程已刪除');
+});
+tiForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const data = {
+    id: editingTripId || uid(),
+    date: document.getElementById('ti-date').value,
+    startTime: document.getElementById('ti-start').value,
+    endTime: document.getElementById('ti-end').value,
+    category: selectedCategory,
+    title: document.getElementById('ti-title').value.trim(),
+    map: document.getElementById('ti-map').value.trim(),
+    note: document.getElementById('ti-note').value.trim(),
+  };
+  if (!data.date || !data.title) return;
+  if (editingTripId) {
+    const i = state.trips.findIndex((t) => t.id === editingTripId);
+    state.trips[i] = data;
+  } else {
+    state.trips.push(data);
+  }
+  persist();
+  closeSheet();
+  renderItinerary();
+  showToast('已儲存');
+});
+
+function renderItinerary() {
+  const el = document.getElementById('itineraryList');
+  updateHeaderSub();
+  if (!state.trips.length) {
+    el.innerHTML = emptyStateHtml('calendar', '還沒有行程，點右下角「+」新增第一個行程吧');
+    return;
+  }
+  const sorted = [...state.trips].sort((a, b) => (a.date + (a.startTime || '00:00')).localeCompare(b.date + (b.startTime || '00:00')));
+  const groups = {};
+  sorted.forEach((t) => { (groups[t.date] ||= []).push(t); });
+
+  el.innerHTML = Object.keys(groups).sort().map((date) => `
+    <div class="day-group">
+      <p class="day-group-label">${fmtDate(date)}</p>
+      <div class="card-list">
+        ${groups[date].map(tripCardHtml).join('')}
+      </div>
+    </div>
+  `).join('');
+
+  el.querySelectorAll('[data-trip-id]').forEach((card) => {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.pill-link')) return; // 點連結按鈕不要打開編輯表單
+      const trip = state.trips.find((t) => t.id === card.dataset.tripId);
+      openItinerarySheet(trip);
+    });
+  });
+}
+
+function tripTimeColHtml(t) {
+  if (t.startTime && t.endTime) {
+    return `<span class="t range">${escapeHtml(t.startTime)}&ndash;${escapeHtml(t.endTime)}</span>`;
+  }
+  if (t.startTime) return `<span class="t">${escapeHtml(t.startTime)}</span>`;
+  return '<span class="t empty">全天</span>';
+}
+
+function tripCardHtml(t) {
+  const href = mapHref(t.map);
+  const cat = categoryDef(t.category);
+  return `
+    <div class="trip-card" data-trip-id="${t.id}">
+      <div class="trip-time-col">
+        ${tripTimeColHtml(t)}
+      </div>
+      <div class="trip-body">
+        <div class="trip-title-row">
+          <span class="cat-badge" style="--cat-color:${cat.color}" title="${cat.label}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${cat.icon}</svg>
+          </span>
+          <p class="trip-title">${escapeHtml(t.title)}</p>
+        </div>
+        ${t.note ? `<p class="trip-note">${escapeHtml(t.note)}</p>` : ''}
+        ${href ? `<a class="pill-link" href="${href}" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+          在地圖開啟
+        </a>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+/* ================= 購物清單 Shopping ================= */
+let editingShopId = null;
+const shForm = document.getElementById('shoppingForm');
+const shDelete = document.getElementById('sh-delete');
+const shImageInput = document.getElementById('sh-image-input');
+const shImageBtn = document.getElementById('sh-image-btn');
+const shImagePreviewWrap = document.getElementById('sh-image-preview-wrap');
+const shImagePreview = document.getElementById('sh-image-preview');
+const shImageRemove = document.getElementById('sh-image-remove');
+let pendingShopImage = '';
+
+// 把使用者填的參考網址補上 https://，方便直接點開
+function normalizeUrl(value) {
+  if (!value) return null;
+  const v = value.trim();
+  if (!v) return null;
+  return /^https?:\/\//i.test(v) ? v : 'https://' + v;
+}
+
+// 讀取手機相簿/相機選的照片，縮小成長邊最多 640px、JPEG 壓縮，
+// 避免一張原始照片動輒好幾 MB，撐爆本機與雲端保存的空間。
+function compressImageFile(file, maxDim, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('讀取失敗'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('解析失敗'));
+      img.onload = () => {
+        let { width, height } = img;
+        const scale = Math.min(1, maxDim / Math.max(width, height));
+        width = Math.max(1, Math.round(width * scale));
+        height = Math.max(1, Math.round(height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function setShopImagePreview(dataUrl) {
+  pendingShopImage = dataUrl || '';
+  if (pendingShopImage) {
+    shImagePreview.src = pendingShopImage;
+    shImagePreviewWrap.hidden = false;
+    shImageBtn.hidden = true;
+  } else {
+    shImagePreviewWrap.hidden = true;
+    shImageBtn.hidden = false;
+  }
+}
+shImageBtn.addEventListener('click', () => shImageInput.click());
+shImageInput.addEventListener('change', async () => {
+  const file = shImageInput.files && shImageInput.files[0];
+  shImageInput.value = '';
+  if (!file) return;
+  try {
+    setShopImagePreview(await compressImageFile(file, 640, 0.72));
+  } catch (e) {
+    showToast('這張照片讀取失敗，換一張試試');
+  }
+});
+shImageRemove.addEventListener('click', () => setShopImagePreview(''));
+
+function openShoppingSheet(item) {
+  editingShopId = item ? item.id : null;
+  document.getElementById('shoppingSheetTitle').textContent = item ? '編輯項目' : '新增購物項目';
+  document.getElementById('sh-name').value = item ? item.name : '';
+  document.getElementById('sh-qty').value = item ? (item.qty || 1) : 1;
+  document.getElementById('sh-url').value = item ? (item.url || '') : '';
+  document.getElementById('sh-note').value = item ? (item.note || '') : '';
+  setShopImagePreview(item ? (item.image || '') : '');
+  shDelete.hidden = !item;
+  openSheet('shoppingSheet');
+}
+document.getElementById('sh-cancel').addEventListener('click', closeSheet);
+armDeleteButton(shDelete, () => {
+  state.shopping = state.shopping.filter((s) => s.id !== editingShopId);
+  persist();
+  closeSheet();
+  renderShopping();
+  showToast('已刪除');
+});
+shForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const name = document.getElementById('sh-name').value.trim();
+  if (!name) return;
+  const qty = Math.max(1, parseInt(document.getElementById('sh-qty').value, 10) || 1);
+  const url = document.getElementById('sh-url').value.trim();
+  const note = document.getElementById('sh-note').value.trim();
+  const data = { name, qty, url, note, image: pendingShopImage };
+  if (editingShopId) {
+    const i = state.shopping.findIndex((s) => s.id === editingShopId);
+    state.shopping[i] = { ...state.shopping[i], ...data };
+  } else {
+    state.shopping.push({ id: uid(), done: false, ...data });
+  }
+  persist();
+  closeSheet();
+  renderShopping();
+  showToast('已儲存');
+});
+
+function renderShopping() {
+  const el = document.getElementById('shoppingList');
+  const summary = document.getElementById('shopSummary');
+  updateHeaderSub();
+  if (!state.shopping.length) {
+    summary.textContent = '';
+    el.innerHTML = emptyStateHtml('cart', '清單是空的，點右下角「+」開始列購物清單');
+    return;
+  }
+  const done = state.shopping.filter((s) => s.done).length;
+  summary.textContent = `已購買 ${done} / ${state.shopping.length}`;
+
+  // 未購買排前面，已購買沉到下面，各自維持原本新增順序
+  const sorted = [...state.shopping].sort((a, b) => (a.done === b.done ? 0 : a.done ? 1 : -1));
+
+  el.innerHTML = sorted.map((s) => {
+    const href = normalizeUrl(s.url);
+    return `
+    <div class="shop-row ${s.done ? 'done' : ''}" data-shop-id="${s.id}">
+      <button class="shop-check ${s.done ? 'checked' : ''}" data-toggle="${s.id}" aria-label="標記已購買">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+      </button>
+      ${s.image ? `<img class="shop-thumb" src="${s.image}" alt="">` : ''}
+      <div class="shop-main" role="button" tabindex="0" data-edit="${s.id}">
+        <div class="shop-name">${escapeHtml(s.name)}${s.qty > 1 ? `<span class="qty-badge">×${s.qty}</span>` : ''}</div>
+        ${s.note ? `<div class="shop-note">${escapeHtml(s.note)}</div>` : ''}
+        ${href ? `<a class="pill-link" href="${href}" target="_blank" rel="noopener" onclick="event.stopPropagation()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
+          參考連結
+        </a>` : ''}
+      </div>
+    </div>
+  `;
+  }).join('');
+
+  el.querySelectorAll('[data-toggle]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const item = state.shopping.find((s) => s.id === btn.dataset.toggle);
+      item.done = !item.done;
+      persist();
+      renderShopping();
+    });
+  });
+  el.querySelectorAll('[data-edit]').forEach((row) => {
+    row.addEventListener('click', () => {
+      const item = state.shopping.find((s) => s.id === row.dataset.edit);
+      openShoppingSheet(item);
+    });
+  });
+}
+
+/* ================= 待辦清單 Todo ================= */
+/* 計算「還有幾天到期」。全部用當地日期的 00:00 來比，避免時區或
+   時分差造成「今天」被算成「昨天」這種誤差。 */
+function dueInfo(t) {
+  if (!t.dueDate) return { level: 'none', days: null, label: '' };
+  const [y, m, d] = t.dueDate.split('-').map(Number);
+  if (!y || !m || !d) return { level: 'none', days: null, label: '' };
+  const due = new Date(y, m - 1, d);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = Math.round((due - today) / 86400000);
+
+  if (t.done) return { level: 'done', days, label: `${m}/${d}` };
+  if (days < 0) return { level: 'over', days, label: `已過期 ${-days} 天` };
+  if (days === 0) return { level: 'today', days, label: '今天到期' };
+  if (days === 1) return { level: 'soon', days, label: '明天到期' };
+  if (days <= 7) return { level: 'soon', days, label: `剩 ${days} 天` };
+  return { level: 'later', days, label: `${m}/${d}` };
+}
+
+let editingTodoId = null;
+const tdForm = document.getElementById('todoForm');
+const tdDelete = document.getElementById('td-delete');
+
+// 待辦的分類標籤選擇器（做法跟行程那邊一樣，只畫一次）
+let selectedTodoCat = TODO_DEFS[0].key;
+const todoPickerEl = document.getElementById('todoCategoryPicker');
+todoPickerEl.innerHTML = TODO_DEFS.map((c) => `
+  <button type="button" class="cat-option" data-cat="${c.key}" style="--cat-color:${c.color}">
+    <span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${c.icon}</svg></span>
+    ${c.label}
+  </button>
+`).join('');
+function setSelectedTodoCat(key) {
+  selectedTodoCat = TODO_MAP[key] ? key : TODO_DEFS[0].key;
+  todoPickerEl.querySelectorAll('.cat-option').forEach((btn) => {
+    btn.classList.toggle('selected', btn.dataset.cat === selectedTodoCat);
+  });
+}
+todoPickerEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('.cat-option');
+  if (btn) setSelectedTodoCat(btn.dataset.cat);
+});
+
+function openTodoSheet(item) {
+  editingTodoId = item ? item.id : null;
+  document.getElementById('todoSheetTitle').textContent = item ? '編輯待辦' : '新增待辦';
+  document.getElementById('td-title').value = item ? item.title : '';
+  document.getElementById('td-due').value = item ? (item.dueDate || '') : '';
+  document.getElementById('td-note').value = item ? (item.note || '') : '';
+  setSelectedTodoCat(item ? item.category : TODO_DEFS[0].key);
+  tdDelete.hidden = !item;
+  openSheet('todoSheet');
+}
+document.getElementById('td-cancel').addEventListener('click', closeSheet);
+armDeleteButton(tdDelete, () => {
+  state.todos = state.todos.filter((t) => t.id !== editingTodoId);
+  persist();
+  closeSheet();
+  renderTodos();
+  showToast('已刪除');
+});
+tdForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const title = document.getElementById('td-title').value.trim();
+  if (!title) return;
+  const data = {
+    title,
+    category: selectedTodoCat,
+    dueDate: document.getElementById('td-due').value,
+    note: document.getElementById('td-note').value.trim(),
+  };
+  if (editingTodoId) {
+    const i = state.todos.findIndex((t) => t.id === editingTodoId);
+    state.todos[i] = { ...state.todos[i], ...data };
+  } else {
+    state.todos.push({ id: uid(), done: false, ...data });
+  }
+  persist();
+  closeSheet();
+  renderTodos();
+  showToast('已儲存');
+});
+
+function renderTodos() {
+  const el = document.getElementById('todoList');
+  const summary = document.getElementById('todoSummary');
+  updateHeaderSub();
+  if (!state.todos.length) {
+    summary.textContent = '';
+    el.innerHTML = emptyStateHtml('check', '還沒有待辦，點右下角「+」記下要準備的東西');
+    return;
+  }
+  const done = state.todos.filter((t) => t.done).length;
+  summary.textContent = `已完成 ${done} / ${state.todos.length}`;
+
+  // 未完成排前面，並依「到期日近的優先」排序；沒填日期的排在有日期的後面；
+  // 已完成的一律沉到最底下。
+  const sorted = [...state.todos].sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    const da = a.dueDate || '9999-12-31';
+    const db = b.dueDate || '9999-12-31';
+    return da.localeCompare(db);
+  });
+
+  el.innerHTML = sorted.map((t) => {
+    const cat = todoDef(t.category);
+    const due = dueInfo(t);
+    return `
+    <div class="todo-row ${t.done ? 'done' : ''}" data-todo-id="${t.id}">
+      <button class="shop-check ${t.done ? 'checked' : ''}" data-toggle="${t.id}" aria-label="標記完成">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+      </button>
+      <div class="todo-main" role="button" tabindex="0" data-edit="${t.id}">
+        <div class="todo-top">
+          <span class="cat-badge" style="--cat-color:${cat.color}" title="${cat.label}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${cat.icon}</svg>
+          </span>
+          <span class="todo-title">${escapeHtml(t.title)}</span>
+        </div>
+        ${t.note ? `<div class="todo-note">${escapeHtml(t.note)}</div>` : ''}
+        ${due.level !== 'none' ? `<span class="due-tag due-${due.level}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+          ${due.label}
+        </span>` : ''}
+      </div>
+    </div>
+  `;
+  }).join('');
+
+  el.querySelectorAll('[data-toggle]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const item = state.todos.find((t) => t.id === btn.dataset.toggle);
+      item.done = !item.done;
+      persist();
+      renderTodos();
+    });
+  });
+  el.querySelectorAll('[data-edit]').forEach((row) => {
+    row.addEventListener('click', () => {
+      const item = state.todos.find((t) => t.id === row.dataset.edit);
+      openTodoSheet(item);
+    });
+  });
+}
+
+/* ================= 空清單提示 ================= */
+function emptyStateHtml(icon, text) {
+  const icons = {
+    calendar: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+    cart: '<circle cx="9" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.5 3h2l2.4 12.4a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.6L21 8H6"/>',
+    check: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+  };
+  return `<div class="empty-state">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${icons[icon]}</svg>
+    <p>${text}</p>
+  </div>`;
+}
+
+/* ================= 備份 / 還原 ================= */
+function openBackupSheet() {
+  const dump = {
+    exportedAt: new Date().toISOString(),
+    trips: state.trips,
+    shopping: state.shopping,
+    expenses: state.expenses,
+    todos: state.todos,
+  };
+  document.getElementById('exportArea').value = JSON.stringify(dump, null, 2);
+  document.getElementById('importArea').value = '';
+  updateSyncBadge();
+  renderDiag();
+  renderSnapshots();
+  openSheet('backupSheet');
+}
+
+function diagText() {
+  return [
+    `雲端狀態：${cloudStatus}`,
+    `window.claude：${diag.hasClaude ? '有' : '沒有'}`,
+    `claude.use()：${diag.hasUse ? '有' : '沒有'}`,
+    `取得寫入能力：${diag.gotNamespace ? '成功（' + diag.route + '）' : '失敗'}`,
+    `錯誤訊息：${diag.lastError}`,
+    `手機儲存鎖定：${persistState}`,
+    `網址：${diag.href}`,
+    `UA：${navigator.userAgent}`,
+  ].join('\n');
+}
+function renderDiag() {
+  const el = document.getElementById('diagBox');
+  if (el) el.textContent = diagText();
+}
+
+function relativeTime(iso) {
+  const d = new Date(iso);
+  const mins = Math.floor((Date.now() - d.getTime()) / 60000);
+  if (mins < 1) return '剛剛';
+  if (mins < 60) return `${mins} 分鐘前`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} 小時前`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days} 天前`;
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+async function renderSnapshots() {
+  const box = document.getElementById('snapshotList');
+  if (!box) return;
+  const list = (await idbGetKey(SNAP_KEY)) || [];
+  if (!list.length) {
+    box.innerHTML = '<p class="snap-empty">還沒有存檔點。下次打開 APP 時會自動建立第一個。</p>';
+    return;
+  }
+  box.innerHTML = list.map((s, i) => `
+    <button type="button" class="snap-row" data-snap="${i}">
+      <span class="snap-when">${relativeTime(s.at)}
+        <span class="snap-count">・行程 ${(s.trips || []).length}・清單 ${(s.shopping || []).length}・待辦 ${(s.todos || []).length}</span>
+      </span>
+      <span class="snap-go">還原 ›</span>
+    </button>
+  `).join('');
+
+  box.querySelectorAll('[data-snap]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const snaps = (await idbGetKey(SNAP_KEY)) || [];
+      const snap = snaps[Number(btn.dataset.snap)];
+      if (!snap) return;
+      if (btn.dataset.armed !== '1') {
+        // 還原會蓋掉目前資料，所以要按兩次才算數
+        box.querySelectorAll('[data-snap]').forEach((b) => {
+          b.dataset.armed = '0';
+          const go = b.querySelector('.snap-go');
+          if (go) go.textContent = '還原 ›';
+        });
+        btn.dataset.armed = '1';
+        btn.querySelector('.snap-go').textContent = '再按一次確認';
+        setTimeout(() => {
+          if (btn.dataset.armed === '1') {
+            btn.dataset.armed = '0';
+            const go = btn.querySelector('.snap-go');
+            if (go) go.textContent = '還原 ›';
+          }
+        }, 3500);
+        return;
+      }
+      await maybeSnapshot('restore');   // 先把「還原前」的樣子也存起來，反悔還能救
+      applyImported(snap);
+    });
+  });
+}
+
+/* 提醒條：只有在「資料沒被任何自動機制保護」而且「真的有資料」時才出現。
+   沒備份過就一直提醒；備份過就等超過 3 天或資料又有新增才再提醒。 */
+function updateBackupNag() {
+  const nag = document.getElementById('backupNag');
+  const txt = document.getElementById('backupNagText');
+  if (!nag || !txt) return;
+
+  const protectedByCloud = cloudStatus === 'on';
+  const protectedByDevice = persistState === 'granted';
+  const hasData = state.trips.length || state.shopping.length || state.todos.length;
+
+  if (protectedByCloud || protectedByDevice || !hasData || cloudStatus === 'checking') {
+    nag.hidden = true;
+    return;
+  }
+  let last = null;
+  try { last = localStorage.getItem('travelnote_last_backup'); } catch (e) {}
+  if (last) {
+    const days = Math.floor((Date.now() - new Date(last).getTime()) / 86400000);
+    if (days < 3) { nag.hidden = true; return; }
+    txt.textContent = `上次備份是 ${days} 天前，這台裝置不會自動保存，建議再存一份`;
+  } else {
+    txt.textContent = '這台裝置不會自動保存資料，請下載一份備份檔以免遺失';
+  }
+  nag.hidden = false;
+}
+document.getElementById('backupNag').addEventListener('click', openBackupSheet);
+document.getElementById('copyDiagBtn').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(diagText());
+    showToast('診斷資訊已複製，可以貼給我看');
+  } catch (e) {
+    showToast('複製失敗，請直接截圖上面那段文字');
+  }
+});
+document.getElementById('copyBtn').addEventListener('click', async () => {
+  const text = document.getElementById('exportArea').value;
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast('已複製，可貼到備忘錄保存');
+  } catch (e) {
+    const ta = document.getElementById('exportArea');
+    ta.focus();
+    ta.select();
+    try {
+      document.execCommand('copy');
+      showToast('已複製，可貼到備忘錄保存');
+    } catch (e2) {
+      showToast('複製失敗，請手動選取文字複製');
+    }
+  }
+});
+function applyImported(parsed) {
+  const normalized = normalizeState(parsed);
+  state.trips = normalized.trips;
+  state.shopping = normalized.shopping;
+  state.expenses = normalized.expenses;
+  state.todos = normalized.todos;
+  persist();
+  renderItinerary();
+  renderShopping();
+  renderTodos();
+  closeSheet();
+  showToast('已還原資料');
+}
+
+document.getElementById('importBtn').addEventListener('click', () => {
+  const raw = document.getElementById('importArea').value.trim();
+  if (!raw) { showToast('請先貼上備份文字'); return; }
+  try {
+    applyImported(JSON.parse(raw));
+  } catch (e) {
+    showToast('格式錯誤，還原失敗');
+  }
+});
+
+/* 下載備份檔：把資料存成一個真正的檔案放進手機的「檔案」App，
+   這是最不會出錯的一層——完全在你自己手上，跟任何帳號都無關。 */
+let downloadsCap = null;
+const downloadBtn = document.getElementById('downloadBtn');
+downloadBtn.addEventListener('click', async () => {
+  const payload = JSON.stringify({
+    exportedAt: new Date().toISOString(),
+    trips: state.trips,
+    shopping: state.shopping,
+    expenses: state.expenses,
+    todos: state.todos,
+  }, null, 2);
+  const d = new Date();
+  const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+  const filename = `旅程手帳備份-${stamp}.json`;
+
+  function markBackedUp() {
+    try { localStorage.setItem('travelnote_last_backup', new Date().toISOString()); } catch (e) {}
+    updateVerdict();
+    updateBackupNag();
+  }
+
+  if (downloadsCap) {
+    try {
+      await downloadsCap.save({ filename, data: payload });
+      markBackedUp();
+      showToast('備份檔已儲存');
+    } catch (err) {
+      const code = err && err.code;
+      if (code === 'declined') return;               // 使用者自己取消，不用提示
+      showToast('儲存備份檔失敗，可改用下面的「複製到剪貼簿」');
+    }
+    return;
+  }
+
+  // 自架版本在 iPhone 上：用系統分享面板，「儲存到檔案」只要一下，
+  // 比瀏覽器下載順很多（下載會丟到「下載項目」而不是你指定的資料夾）。
+  try {
+    const file = new File([payload], filename, { type: 'application/json' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: '旅程手帳備份' });
+      markBackedUp();
+      return;
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;        // 使用者自己取消分享
+    // 分享不成就往下走，用一般下載
+  }
+
+  // 其他環境（電腦瀏覽器等）用原生下載
+  try {
+    const blob = new Blob([payload], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    markBackedUp();
+  } catch (e) {
+    showToast('這個環境無法下載檔案，請改用「複製到剪貼簿」');
+  }
+});
+
+// 從備份檔還原
+const restoreFileInput = document.getElementById('restoreFileInput');
+document.getElementById('restoreFileBtn').addEventListener('click', () => restoreFileInput.click());
+restoreFileInput.addEventListener('change', () => {
+  const file = restoreFileInput.files && restoreFileInput.files[0];
+  restoreFileInput.value = '';
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onerror = () => showToast('讀取檔案失敗');
+  reader.onload = () => {
+    try {
+      applyImported(JSON.parse(reader.result));
+    } catch (e) {
+      showToast('這個檔案不是有效的備份檔');
+    }
+  };
+  reader.readAsText(file);
+});
+
+/* ================= 初始化 ================= */
+(async function init() {
+  // 先向瀏覽器申請「不要自動清掉這份資料」，再確認雲端保存能不能用
+  await Promise.all([
+    requestPersistentStorage(),
+    initCloud(),
+  ]);
+  try {
+    if (window.claude && typeof window.claude.use === 'function') {
+      downloadsCap = await window.claude.use('downloads');
+    }
+  } catch (e) { downloadsCap = null; }
+
+  await hydrateState();  // 三個來源挑最新的一份，並實際驗證雲端寫得進去
+  renderItinerary();
+  renderShopping();
+  renderTodos();
+  switchTab('itinerary');
+  updateSyncBadge();
+  maybeSnapshot('open');  // 資料跟上次不一樣的話，自動留一個存檔點
+})();
+</script>
+<script>
+/* 註冊 Service Worker：讓 APP 完全離線也能開，並且成為真正的 PWA。
+   只在 https 或 localhost 有效，file:// 直接開會安靜略過。 */
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
