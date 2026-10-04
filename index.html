@@ -114,7 +114,7 @@
   }
 
   * { box-sizing: border-box; }
-  html { -webkit-text-size-adjust: 100%; height: 100%; }
+  html { -webkit-text-size-adjust: 100%; height: 100%; background: var(--header-bg); }
   body {
     margin: 0;
     height: 100%;
@@ -149,15 +149,21 @@
        100vh 是舊瀏覽器的退路，100dvh 會扣掉 Safari 的網址列高度。 */
     height: 100vh;
     height: 100dvh;
+    /* 手機上直接釘滿整個可視範圍（四邊都貼齊），不依賴 100vh／100dvh 的算法：
+       加到主畫面的全螢幕模式下，iOS 的 vh 有時會比實際螢幕矮一截，
+       下方就多出一塊空白。fixed + inset:0 永遠等於真正的螢幕大小。 */
+    position: fixed;
+    inset: 0;
     overflow: hidden;
     background: var(--surface);
     display: flex;
     flex-direction: column;
-    position: relative;
   }
   @media (min-width: 560px) {
     body { display: flex; justify-content: center; align-items: center; padding: 2rem 1rem; overflow: auto; }
     .app {
+      position: relative;
+      inset: auto;
       height: min(100dvh - 4rem, 900px);
       border-radius: 32px;
       box-shadow: 0 24px 64px var(--shadow);
@@ -900,8 +906,8 @@ function todoDef(key) {
   return TODO_MAP[key] || TODO_DEFS[0];
 }
 
-const APP_VERSION = '1.8';
-const APP_DATE = '2026-10-03';
+const APP_VERSION = '1.9';
+const APP_DATE = '2026-10-04';
 const DEFAULT_JOURNEY_ID = 'j_default';
 
 const STORAGE_KEYS = {
