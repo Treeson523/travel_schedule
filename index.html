@@ -9,6 +9,10 @@
 <meta name="theme-color" content="#16262B">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
+<link rel="apple-touch-startup-image" href="splash-1206x2622.png" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="splash-1320x2868.png" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="splash-1179x2556.png" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="splash-1290x2796.png" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
 <title>樹跡旅行</title>
 </head><body>
 
@@ -117,6 +121,7 @@
   }
 
   * { box-sizing: border-box; }
+  html.win-short { --safe-b: 0px; }
   html { -webkit-text-size-adjust: 100%; height: 100%; background: var(--header-bg); }
   body {
     margin: 0;
@@ -157,7 +162,6 @@
        下方就多出一塊空白。fixed + inset:0 永遠等於真正的螢幕大小。 */
     position: fixed;
     inset: 0;
-    height: var(--app-h, auto);   /* 見 fitScreen()：主畫面模式下 iOS 回報的視窗比實際螢幕矮時用 */
     overflow: hidden;
     background: var(--surface);
     display: flex;
@@ -910,7 +914,7 @@ function todoDef(key) {
   return TODO_MAP[key] || TODO_DEFS[0];
 }
 
-const APP_VERSION = '1.9.2';
+const APP_VERSION = '1.9.3';
 const APP_DATE = '2026-10-04';
 const DEFAULT_JOURNEY_ID = 'j_default';
 
@@ -2384,7 +2388,7 @@ function layoutDiag() {
     const app = document.querySelector('.app').getBoundingClientRect();
     const tb = document.querySelector('.tabbar').getBoundingClientRect();
     const standalone = (navigator.standalone === true) || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
-    return `${standalone ? '主畫面模式' : '瀏覽器'}｜視窗 ${innerWidth}×${innerHeight}｜螢幕 ${screen.width}×${screen.height}｜app底 ${Math.round(app.bottom)}｜分頁列 ${Math.round(tb.top)}–${Math.round(tb.bottom)}｜安全區下 ${safeB}｜補高 ${document.documentElement.style.getPropertyValue('--app-h') || '無'}`;
+    return `${standalone ? '主畫面模式' : '瀏覽器'}｜視窗 ${innerWidth}×${innerHeight}｜螢幕 ${screen.width}×${screen.height}｜app底 ${Math.round(app.bottom)}｜分頁列 ${Math.round(tb.top)}–${Math.round(tb.bottom)}｜安全區下 ${safeB}｜視窗偏矮 ${document.documentElement.classList.contains('win-short') ? '是' : '否'}`;
   } catch (e) { return '無法取得'; }
 }
 function renderDiag() {
@@ -2607,23 +2611,17 @@ restoreFileInput.addEventListener('change', () => {
   reader.readAsText(file);
 });
 
-/* ================= 主畫面模式：補齊螢幕高度 =================
-   實測（iPhone，加到主畫面）：視窗高度回報 812，但螢幕實際是 874，
-   下方少掉的那 62px 不屬於版面，所以不管用 100vh、100dvh 還是 fixed 都填不到，
-   畫面底部就多出一塊空白。這裡偵測到「主畫面模式＋直立＋差距合理」時，
-   直接把 APP 高度設成螢幕高度，把那一段補滿。
-   鍵盤跳出時差距會變很大（超過 100px），這時不處理，避免被撐壞。 */
+/* ================= 主畫面模式：視窗比螢幕矮 =================
+   實測（iPhone，加到主畫面）：視窗高度回報 812，螢幕實際 874。多出來的 62px
+   在網頁能畫的範圍之外（v1.9.2 試過把 APP 拉長蓋過去，結果分頁列被推到看不見的地方，已撤回）。
+   所以這裡只做一件事：偵測到這個狀況時，把分頁列下方預留的安全區拿掉
+   （Home 指示條本來就落在那段看不到的區域裡，不需要再留白），讓分頁列貼齊可視範圍底部。 */
 function fitScreen() {
   try {
     const standalone = (navigator.standalone === true) || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
-    const portrait = innerHeight > innerWidth;
     const gap = screen.height - innerHeight;
-    const root = document.documentElement;
-    if (standalone && portrait && gap >= 8 && gap <= 100 && innerWidth < 560) {
-      root.style.setProperty('--app-h', screen.height + 'px');
-    } else {
-      root.style.removeProperty('--app-h');
-    }
+    const short = standalone && innerHeight > innerWidth && gap >= 8 && gap <= 100 && innerWidth < 560;
+    document.documentElement.classList.toggle('win-short', short);
   } catch (e) {}
 }
 window.addEventListener('resize', fitScreen);
