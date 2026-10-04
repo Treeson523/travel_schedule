@@ -59,6 +59,9 @@
     --due-soon: #A87A2C;
     /* 底部分頁列的高度（不含 iPhone 下方安全區），FAB 和清單底部留白都跟著它算 */
     --tabbar-h: 54px;
+    /* 分頁列下方只留 iPhone 底部安全區的約三分之一：Home 指示條很細、只佔最下面一小條，
+       整段 34px 都留白會變成一塊浪費的空白 */
+    --safe-b: calc(env(safe-area-inset-bottom, 0px) * 0.35);
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
@@ -371,7 +374,7 @@
   /* ---------- FAB ---------- */
   .fab {
     position: absolute; right: 20px;
-    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 14px);
+    bottom: calc(var(--tabbar-h) + var(--safe-b) + 14px);
     width: 54px; height: 54px; border-radius: 50%; border: none;
     background: var(--accent); color: #fff; font-size: 1.7rem; line-height: 1;
     display: flex; align-items: center; justify-content: center;
@@ -386,8 +389,8 @@
      不會像先前那樣把畫面下方吃掉太多。 */
   .tabbar {
     flex: none;
-    height: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
-    padding: 0 6px env(safe-area-inset-bottom, 0px);
+    height: calc(var(--tabbar-h) + var(--safe-b));
+    padding: 0 6px var(--safe-b);
     display: flex; align-items: stretch;
     background: var(--header-bg);
     position: relative; z-index: 10;
@@ -906,7 +909,7 @@ function todoDef(key) {
   return TODO_MAP[key] || TODO_DEFS[0];
 }
 
-const APP_VERSION = '1.9';
+const APP_VERSION = '1.9.1';
 const APP_DATE = '2026-10-04';
 const DEFAULT_JOURNEY_ID = 'j_default';
 
@@ -2360,6 +2363,7 @@ function openBackupSheet() {
 function diagText() {
   return [
     `版本：v${APP_VERSION}（${APP_DATE}）`,
+    `顯示：${layoutDiag()}`,
     `雲端狀態：${cloudStatus}`,
     `window.claude：${diag.hasClaude ? '有' : '沒有'}`,
     `claude.use()：${diag.hasUse ? '有' : '沒有'}`,
@@ -2369,6 +2373,18 @@ function diagText() {
     `網址：${diag.href}`,
     `UA：${navigator.userAgent}`,
   ].join('\n');
+}
+function layoutDiag() {
+  try {
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position:fixed;left:0;bottom:0;width:0;height:0;padding-bottom:env(safe-area-inset-bottom,0px);visibility:hidden';
+    document.body.appendChild(probe);
+    const safeB = probe.offsetHeight; probe.remove();
+    const app = document.querySelector('.app').getBoundingClientRect();
+    const tb = document.querySelector('.tabbar').getBoundingClientRect();
+    const standalone = (navigator.standalone === true) || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+    return `${standalone ? '主畫面模式' : '瀏覽器'}｜視窗 ${innerWidth}×${innerHeight}｜螢幕 ${screen.width}×${screen.height}｜app底 ${Math.round(app.bottom)}｜分頁列 ${Math.round(tb.top)}–${Math.round(tb.bottom)}｜安全區下 ${safeB}`;
+  } catch (e) { return '無法取得'; }
 }
 function renderDiag() {
   const el = document.getElementById('diagBox');
