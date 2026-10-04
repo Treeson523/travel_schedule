@@ -1,18 +1,17 @@
 <!doctype html>
-<html lang="zh-Hant">
-<head>
+<html lang="zh-Hant"><head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#16262B">
-<meta name="mobile-web-app-capable" content="yes">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="旅程手帳">
+<meta name="apple-mobile-web-app-title" content="樹跡旅行">
+<meta name="theme-color" content="#16262B">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
-<title>旅程手帳</title>
-</head>
-<body>
+<title>樹跡旅行</title>
+</head><body>
+
 <style>
   /* ============================================================
      設計變數（Design Tokens）
@@ -529,6 +528,61 @@
   .sync-chip.checking { background: rgba(255,255,255,0.10); color: var(--header-text); opacity: 0.7; }
   .sync-chip.off { background: var(--accent); color: #fff; }
   .sync-badge.checking { background: var(--line); color: var(--text-soft); }
+
+  /* ---------- v1.7：版本號／旅程切換／篩選列／今天 ---------- */
+  .ver-tag { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.66rem; font-weight: 600;
+    opacity: 0.55; margin-left: 8px; vertical-align: middle; letter-spacing: 0.02em; }
+  .header-sub-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; min-width: 0; }
+  .header-sub-row .header-sub { margin-top: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .journey-btn {
+    flex: none; max-width: 52%; display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid rgba(255,255,255,0.28); background: rgba(255,255,255,0.10); color: var(--header-text);
+    border-radius: 999px; padding: 5px 11px; font-size: 0.8rem; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+  .journey-btn .jname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .journey-btn svg { width: 12px; height: 12px; flex: none; }
+  .journey-row { display: flex; align-items: stretch; gap: 8px; margin-bottom: 8px; }
+  .journey-pick {
+    flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; text-align: left; font-family: inherit;
+    background: var(--card); border: 1.5px solid var(--line); border-radius: 12px; padding: 11px 12px; cursor: pointer; color: var(--text);
+  }
+  .journey-pick.current { border-color: var(--primary); background: var(--primary-soft); }
+  .journey-pick .jp-mark { flex: none; width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line);
+    display: flex; align-items: center; justify-content: center; color: #fff; }
+  .journey-pick.current .jp-mark { background: var(--primary); border-color: var(--primary); }
+  .journey-pick .jp-mark svg { width: 11px; height: 11px; opacity: 0; }
+  .journey-pick.current .jp-mark svg { opacity: 1; }
+  .journey-pick .jp-text { min-width: 0; flex: 1; }
+  .journey-pick .jp-name { font-weight: 700; font-size: 0.92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .journey-pick .jp-count { font-size: 0.74rem; color: var(--text-soft); margin-top: 2px; }
+  .journey-edit { flex: none; width: 46px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface);
+    color: var(--text-soft); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .journey-edit svg { width: 16px; height: 16px; }
+  .filter-bar {
+    position: sticky; top: -16px; z-index: 5; margin: -16px -16px 12px; padding: 12px 16px 10px;
+    background: var(--surface); display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .filter-bar::-webkit-scrollbar { display: none; }
+  .filter-bar[hidden] { display: none; }
+  .fchip {
+    flex: none; display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 6px 12px;
+    border: 1.5px solid var(--line); background: var(--card); color: var(--text-soft);
+    font-size: 0.8rem; font-weight: 600; cursor: pointer; font-family: inherit; white-space: nowrap;
+  }
+  .fchip svg { width: 13px; height: 13px; flex: none; color: var(--cat-color, currentColor); }
+  .fchip .fc-n { font-size: 0.72rem; opacity: 0.7; font-variant-numeric: tabular-nums; }
+  .fchip.active { color: var(--text); border-color: var(--cat-color, var(--primary));
+    background: color-mix(in oklab, var(--cat-color, var(--primary)) 14%, var(--card)); }
+  .fchip.today-jump { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .fchip.today-jump svg { color: #fff; }
+  .fchip-sep { flex: none; width: 1px; background: var(--line); margin: 3px 2px; }
+  .day-group { scroll-margin-top: 54px; }
+  .day-group.today .day-group-label { color: var(--accent); }
+  .today-tag { display: inline-block; margin-left: 8px; background: var(--accent); color: #fff; border-radius: 999px;
+    padding: 1px 8px; font-size: 0.68rem; letter-spacing: 0.04em; text-transform: none; vertical-align: 1px; }
+  .day-group.today .trip-card:not(.continued) { border-color: color-mix(in oklab, var(--accent) 45%, var(--line)); }
+  .day-group.past { opacity: 0.62; }
   .toast {
     position: fixed; left: 50%; bottom: 110px; transform: translateX(-50%);
     background: var(--text); color: var(--surface); padding: 10px 18px; border-radius: 999px;
@@ -543,13 +597,19 @@
 <div class="app">
   <header class="app-header">
     <div class="header-row">
-      <h1 class="app-title">旅程手帳</h1>
+      <h1 class="app-title">樹跡旅行<span class="ver-tag" id="verTag"></span></h1>
       <button class="sync-chip checking" id="syncChip" style="margin-left:auto;">檢查中</button>
       <button class="icon-btn" id="backupBtn" aria-label="資料保存與備份" title="資料保存與備份">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
       </button>
     </div>
-    <div class="header-sub" id="headerSub">—</div>
+    <div class="header-sub-row">
+      <button class="journey-btn" id="journeyBtn" type="button" aria-label="切換旅程">
+        <span class="jname" id="journeyName">我的旅程</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="header-sub" id="headerSub">—</div>
+    </div>
   </header>
 
   <main class="tab-panels">
@@ -560,6 +620,7 @@
     </button>
 
     <section class="panel" id="panel-itinerary" data-panel="itinerary">
+      <div class="filter-bar" id="filterBar" hidden></div>
       <div id="itineraryList"></div>
     </section>
 
@@ -699,6 +760,33 @@
   </form>
 </div>
 
+<!-- 旅程切換 -->
+<div class="sheet" id="journeySheet">
+  <div class="sheet-grabber"></div>
+  <h2>我的旅程</h2>
+  <p class="hint">每趟旅程各自有行程、購物清單、待辦，互不混在一起。點一下就能切換。</p>
+  <div id="journeyList"></div>
+  <div class="sheet-actions" style="margin-top:10px;">
+    <button type="button" class="btn btn-ghost" id="journey-close">關閉</button>
+    <button type="button" class="btn btn-primary" id="journey-add">＋ 新增旅程</button>
+  </div>
+</div>
+
+<!-- 旅程名稱編輯 -->
+<div class="sheet" id="journeyEditSheet">
+  <div class="sheet-grabber"></div>
+  <h2 id="journeyEditTitle">新增旅程</h2>
+  <form id="journeyForm">
+    <div class="field"><label for="jn-name">旅程名稱</label><input type="text" id="jn-name" placeholder="例如：2027 沖繩" maxlength="30" required></div>
+    <p class="field-hint" id="jn-hint" style="margin:-4px 0 14px;"></p>
+    <div class="sheet-actions">
+      <button type="button" class="btn btn-delete" id="jn-delete" hidden>刪除旅程</button>
+      <button type="button" class="btn btn-ghost" id="jn-cancel">取消</button>
+      <button type="submit" class="btn btn-primary">儲存</button>
+    </div>
+  </form>
+</div>
+
 <!-- 資料保存 / 備份 / 還原 -->
 <div class="sheet" id="backupSheet">
   <div class="sheet-grabber"></div>
@@ -758,7 +846,7 @@
 
 <script>
 /* ============================================================
-   旅程手帳 — 前端邏輯
+   樹跡旅行 — 前端邏輯
    全部資料都存在瀏覽器的 localStorage 裡（等於手機上這個網頁
    自己的一個小盒子），不會傳到任何伺服器，也不需要網路。
    兩份資料：trips（行程）、shopping（購物清單）
@@ -812,7 +900,12 @@ function todoDef(key) {
   return TODO_MAP[key] || TODO_DEFS[0];
 }
 
+const APP_VERSION = '1.8';
+const APP_DATE = '2026-10-03';
+const DEFAULT_JOURNEY_ID = 'j_default';
+
 const STORAGE_KEYS = {
+  journeys: 'travelnote_journeys_v1',
   trips: 'travelnote_trips_v1',
   shopping: 'travelnote_shopping_v1',
   expenses: 'travelnote_expenses_v1',
@@ -912,7 +1005,7 @@ const SNAP_MAX = 5;
 function snapshotSignature(s) {
   // 只比對「內容有沒有變」，不含時間戳，否則每次開啟都會被當成有變動
   try {
-    return JSON.stringify({ t: s.trips, s: s.shopping, e: s.expenses, d: s.todos });
+    return JSON.stringify({ t: s.trips, s: s.shopping, e: s.expenses, d: s.todos, j: s.journeys, c: s.currentJourney });
   } catch (e) { return ''; }
 }
 
@@ -930,6 +1023,8 @@ async function maybeSnapshot(reason) {
       shopping: state.shopping,
       expenses: state.expenses,
       todos: state.todos,
+      journeys: state.journeys,
+      currentJourney: state.currentJourney,
     });
     await idbSet(list.slice(0, SNAP_MAX), SNAP_KEY);
   } catch (e) {
@@ -996,6 +1091,7 @@ function normalizeTrip(t) {
     title: t.title ?? '',
     map: t.map ?? '',
     note: t.note ?? '',
+    journeyId: t.journeyId,
   };
 }
 function normalizeTodo(t) {
@@ -1006,18 +1102,45 @@ function normalizeTodo(t) {
     dueDate: t.dueDate ?? '',
     note: t.note ?? '',
     done: !!t.done,
+    journeyId: t.journeyId,
   };
 }
 function normalizeState(raw) {
+  // 旅程清單：舊資料沒有這個欄位，一律補一個「我的旅程」，原有資料全部歸給它，
+  // 所以升級後什麼都不會不見。
+  let journeys = (raw && Array.isArray(raw.journeys) ? raw.journeys : [])
+    .filter((j) => j && j.id)
+    .map((j) => ({ id: String(j.id), name: String(j.name || '未命名旅程').slice(0, 30) }));
+  if (!journeys.length) journeys = [{ id: DEFAULT_JOURNEY_ID, name: '我的旅程' }];
+  const ids = new Set(journeys.map((j) => j.id));
+  const fallbackId = journeys[0].id;
+  const own = (x) => ({ ...x, journeyId: ids.has(x.journeyId) ? x.journeyId : fallbackId });
+  const cur = raw && ids.has(raw.currentJourney) ? raw.currentJourney : fallbackId;
   return {
-    trips: Array.isArray(raw && raw.trips) ? raw.trips.map(normalizeTrip) : [],
-    shopping: Array.isArray(raw && raw.shopping) ? raw.shopping : [],
+    trips: Array.isArray(raw && raw.trips) ? raw.trips.map(normalizeTrip).map(own) : [],
+    shopping: Array.isArray(raw && raw.shopping) ? raw.shopping.map(own) : [],
     expenses: Array.isArray(raw && raw.expenses) ? raw.expenses : [],
-    todos: Array.isArray(raw && raw.todos) ? raw.todos.map(normalizeTodo) : [],
+    todos: Array.isArray(raw && raw.todos) ? raw.todos.map(normalizeTodo).map(own) : [],
+    journeys,
+    currentJourney: cur,
   };
 }
 
-const state = { trips: [], shopping: [], expenses: [], todos: [] };
+const state = { trips: [], shopping: [], expenses: [], todos: [],
+  journeys: [{ id: DEFAULT_JOURNEY_ID, name: '我的旅程' }], currentJourney: DEFAULT_JOURNEY_ID };
+
+// 畫面上只顯示「目前這趟旅程」的資料；儲存時仍然是全部一起存
+function curTrips() { return state.trips.filter((t) => t.journeyId === state.currentJourney); }
+function curShopping() { return state.shopping.filter((t) => t.journeyId === state.currentJourney); }
+function curTodos() { return state.todos.filter((t) => t.journeyId === state.currentJourney); }
+function currentJourneyObj() { return state.journeys.find((j) => j.id === state.currentJourney) || state.journeys[0]; }
+// 要存到各層的完整資料，集中在這一處，之後新增欄位不會漏
+function dataSnapshot() {
+  return {
+    trips: state.trips, shopping: state.shopping, expenses: state.expenses, todos: state.todos,
+    journeys: state.journeys, currentJourney: state.currentJourney,
+  };
+}
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -1161,11 +1284,9 @@ async function saveAllLocal() {
   saveListLocal(STORAGE_KEYS.shopping, state.shopping);
   saveListLocal(STORAGE_KEYS.expenses, state.expenses);
   saveListLocal(STORAGE_KEYS.todos, state.todos);
+  saveListLocal(STORAGE_KEYS.journeys, { journeys: state.journeys, currentJourney: state.currentJourney });
   await idbSet({
-    trips: state.trips,
-    shopping: state.shopping,
-    expenses: state.expenses,
-    todos: state.todos,
+    ...dataSnapshot(),
     savedAt: new Date().toISOString(),
   });
 }
@@ -1181,10 +1302,7 @@ function persist() {
 
 function cloudPayload() {
   return JSON.stringify({
-    trips: state.trips,
-    shopping: state.shopping,
-    expenses: state.expenses,
-    todos: state.todos,
+    ...dataSnapshot(),
     savedAt: new Date().toISOString(),
   }, null, 2);
 }
@@ -1386,6 +1504,7 @@ async function hydrateState() {
     shopping: loadList(STORAGE_KEYS.shopping),
     expenses: loadList(STORAGE_KEYS.expenses),
     todos: loadList(STORAGE_KEYS.todos),
+    ...(() => { const j = loadList(STORAGE_KEYS.journeys); return j && !Array.isArray(j) ? j : {}; })(),
   };
 
   // 有存檔時間的優先比時間；localStorage 沒有時間戳，當成最舊的墊底來源
@@ -1432,18 +1551,18 @@ function switchTab(tab) {
 function updateHeaderSub() {
   const sub = document.getElementById('headerSub');
   if (currentTab === 'itinerary') {
-    const n = state.trips.length;
+    const n = curTrips().length;
     // 跨日行程涵蓋的每一天都要算進去，天數才不會少算
     const daySet = new Set();
-    state.trips.forEach((t) => tripSpanDays(t).forEach((d) => daySet.add(d)));
+    curTrips().forEach((t) => tripSpanDays(t).forEach((d) => daySet.add(d)));
     sub.textContent = n ? `共 ${daySet.size} 天・${n} 個行程` : '還沒有任何行程';
   } else if (currentTab === 'shopping') {
-    const done = state.shopping.filter((s) => s.done).length;
-    sub.textContent = state.shopping.length ? `已購買 ${done} / ${state.shopping.length}` : '清單是空的';
+    const done = curShopping().filter((s) => s.done).length;
+    sub.textContent = curShopping().length ? `已購買 ${done} / ${curShopping().length}` : '清單是空的';
   } else {
-    const open = state.todos.filter((t) => !t.done);
+    const open = curTodos().filter((t) => !t.done);
     const over = open.filter((t) => dueInfo(t).level === 'over').length;
-    if (!state.todos.length) sub.textContent = '還沒有待辦事項';
+    if (!curTodos().length) sub.textContent = '還沒有待辦事項';
     else if (over) sub.textContent = `還有 ${open.length} 件待辦・${over} 件已過期`;
     else sub.textContent = open.length ? `還有 ${open.length} 件待辦` : '待辦都完成了 🎉';
   }
@@ -1455,7 +1574,7 @@ function updateHeaderSub() {
 function updateTodoTabBadge() {
   const btn = document.querySelector('.tab-btn[data-tab="todo"]');
   if (!btn) return;
-  const urgent = state.todos.filter((t) => {
+  const urgent = curTodos().filter((t) => {
     if (t.done) return false;
     const lv = dueInfo(t).level;
     return lv === 'over' || lv === 'today';
@@ -1519,6 +1638,120 @@ document.getElementById('fabBtn').addEventListener('click', () => {
 document.getElementById('backupBtn').addEventListener('click', openBackupSheet);
 document.getElementById('syncChip').addEventListener('click', openBackupSheet);
 document.getElementById('backup-close').addEventListener('click', closeSheet);
+
+/* ================= 旅程管理 Journeys ================= */
+let editingJourneyId = null;
+const jnDelete = document.getElementById('jn-delete');
+
+function renderAll() {
+  tripFilter = 'all';
+  renderItinerary();
+  renderShopping();
+  renderTodos();
+  updateJourneyBtn();
+}
+function updateJourneyBtn() {
+  const j = currentJourneyObj();
+  document.getElementById('journeyName').textContent = j ? j.name : '我的旅程';
+}
+function journeyCounts(id) {
+  return {
+    t: state.trips.filter((x) => x.journeyId === id).length,
+    s: state.shopping.filter((x) => x.journeyId === id).length,
+    d: state.todos.filter((x) => x.journeyId === id).length,
+  };
+}
+function renderJourneyList() {
+  document.getElementById('journeyList').innerHTML = state.journeys.map((j) => {
+    const c = journeyCounts(j.id);
+    const cur = j.id === state.currentJourney;
+    return `<div class="journey-row">
+      <button type="button" class="journey-pick${cur ? ' current' : ''}" data-pick="${j.id}">
+        <span class="jp-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg></span>
+        <span class="jp-text"><div class="jp-name">${escapeHtml(j.name)}</div>
+          <div class="jp-count">行程 ${c.t}・購物 ${c.s}・待辦 ${c.d}</div></span>
+      </button>
+      <button type="button" class="journey-edit" data-edit="${j.id}" aria-label="編輯 ${escapeHtml(j.name)}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+      </button>
+    </div>`;
+  }).join('');
+}
+function openJourneySheet() {
+  renderJourneyList();
+  openSheet('journeySheet');
+}
+document.getElementById('journeyList').addEventListener('click', (e) => {
+  const pick = e.target.closest('[data-pick]');
+  if (pick) {
+    if (pick.dataset.pick !== state.currentJourney) {
+      state.currentJourney = pick.dataset.pick;
+      persist();
+      renderAll();
+      showToast('已切換到「' + currentJourneyObj().name + '」');
+    }
+    closeSheet();
+    return;
+  }
+  const ed = e.target.closest('[data-edit]');
+  if (ed) openJourneyEdit(state.journeys.find((j) => j.id === ed.dataset.edit));
+});
+function openJourneyEdit(j) {
+  editingJourneyId = j ? j.id : null;
+  document.getElementById('journeyEditTitle').textContent = j ? '編輯旅程' : '新增旅程';
+  document.getElementById('jn-name').value = j ? j.name : '';
+  const hint = document.getElementById('jn-hint');
+  if (j) {
+    const c = journeyCounts(j.id);
+    const only = state.journeys.length <= 1;
+    hint.textContent = only ? '至少要保留一趟旅程，所以目前不能刪除。'
+      : `刪除會連同這趟旅程的 ${c.t} 個行程、${c.s} 個購物項目、${c.d} 個待辦一起刪掉（刪除前會自動留一份存檔點）。`;
+    jnDelete.hidden = only;
+  } else {
+    hint.textContent = '建立後會自動切換過去，行程、購物清單、待辦都從空白開始。';
+    jnDelete.hidden = true;
+  }
+  openSheet('journeyEditSheet');
+}
+document.getElementById('journeyBtn').addEventListener('click', openJourneySheet);
+document.getElementById('journey-close').addEventListener('click', closeSheet);
+document.getElementById('journey-add').addEventListener('click', () => openJourneyEdit(null));
+document.getElementById('jn-cancel').addEventListener('click', openJourneySheet);
+document.getElementById('journeyForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const name = document.getElementById('jn-name').value.trim();
+  if (!name) return;
+  if (editingJourneyId) {
+    const j = state.journeys.find((x) => x.id === editingJourneyId);
+    if (j) j.name = name;
+    persist();
+    updateJourneyBtn();
+    showToast('已更新名稱');
+    openJourneySheet();
+  } else {
+    const j = { id: 'j_' + uid(), name };
+    state.journeys.push(j);
+    state.currentJourney = j.id;
+    persist();
+    renderAll();
+    closeSheet();
+    showToast('已建立「' + name + '」');
+  }
+});
+armDeleteButton(jnDelete, async () => {
+  if (state.journeys.length <= 1 || !editingJourneyId) return;
+  await maybeSnapshot('before-delete-journey');   // 先留存檔點，刪錯還救得回來
+  const id = editingJourneyId;
+  state.trips = state.trips.filter((x) => x.journeyId !== id);
+  state.shopping = state.shopping.filter((x) => x.journeyId !== id);
+  state.todos = state.todos.filter((x) => x.journeyId !== id);
+  state.journeys = state.journeys.filter((j) => j.id !== id);
+  if (state.currentJourney === id) state.currentJourney = state.journeys[0].id;
+  persist();
+  renderAll();
+  closeSheet();
+  showToast('旅程已刪除');
+});
 
 /* ================= 行程 Itinerary ================= */
 let editingTripId = null;
@@ -1595,9 +1828,9 @@ tiForm.addEventListener('submit', (e) => {
   }
   if (editingTripId) {
     const i = state.trips.findIndex((t) => t.id === editingTripId);
-    state.trips[i] = data;
+    state.trips[i] = { ...data, journeyId: state.trips[i].journeyId };
   } else {
-    state.trips.push(data);
+    state.trips.push({ ...data, journeyId: state.currentJourney });
   }
   persist();
   closeSheet();
@@ -1605,14 +1838,71 @@ tiForm.addEventListener('submit', (e) => {
   showToast('已儲存');
 });
 
+/* ---------- 行程：類別篩選列 + 跳到今天 ---------- */
+let tripFilter = 'all';
+
+// 找出「今天」或「今天之後最近的一天」，沒有就回傳 null（整趟都已經過了）
+function targetDay() {
+  const today = todayStr();
+  const days = new Set();
+  curTrips().forEach((t) => tripSpanDays(t).forEach((d) => days.add(d)));
+  const sorted = [...days].sort();
+  return sorted.find((d) => d >= today) || null;
+}
+function jumpToToday(smooth) {
+  const d = targetDay();
+  if (!d) { showToast('這趟旅程的行程都已經過了'); return; }
+  const node = document.querySelector(`#itineraryList [data-date="${d}"]`);
+  if (!node) { showToast('目前的篩選下，今天沒有行程'); return; }
+  node.scrollIntoView({ block: 'start', behavior: smooth ? 'smooth' : 'auto' });
+}
+function renderFilterBar(all) {
+  const bar = document.getElementById('filterBar');
+  if (!bar) return;
+  if (!all.length) { bar.hidden = true; bar.innerHTML = ''; return; }
+  bar.hidden = false;
+  const counts = {};
+  all.forEach((t) => { counts[t.category] = (counts[t.category] || 0) + 1; });
+  // 如果正在篩選的類別被刪光了，自動退回「全部」，免得畫面空空的找不到出口
+  if (tripFilter !== 'all' && !counts[tripFilter]) tripFilter = 'all';
+  const td = targetDay();
+  const todayLabel = td === todayStr() ? '今天' : (td ? `最近 ${fmtShortDate(td)}` : '');
+  const catChips = CATEGORY_DEFS.filter((c) => counts[c.key]).map((c) => `
+    <button type="button" class="fchip${tripFilter === c.key ? ' active' : ''}" data-filter="${c.key}" style="--cat-color:${c.color}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${c.icon}</svg>
+      ${c.label} <span class="fc-n">${counts[c.key]}</span>
+    </button>`).join('');
+  bar.innerHTML = `
+    ${todayLabel ? `<button type="button" class="fchip today-jump" data-jump="1">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>
+      ${todayLabel}</button><span class="fchip-sep"></span>` : ''}
+    <button type="button" class="fchip${tripFilter === 'all' ? ' active' : ''}" data-filter="all">全部 <span class="fc-n">${all.length}</span></button>
+    ${catChips}`;
+}
+document.getElementById('filterBar').addEventListener('click', (e) => {
+  const jump = e.target.closest('[data-jump]');
+  if (jump) { jumpToToday(true); return; }
+  const chip = e.target.closest('[data-filter]');
+  if (!chip) return;
+  tripFilter = chip.dataset.filter;
+  renderItinerary();
+});
+
 function renderItinerary() {
   const el = document.getElementById('itineraryList');
   updateHeaderSub();
-  if (!state.trips.length) {
+  const all = curTrips();
+  renderFilterBar(all);
+  if (!all.length) {
     el.innerHTML = emptyStateHtml('calendar', '還沒有行程，點右下角「+」新增第一個行程吧');
     return;
   }
-  const sorted = [...state.trips].sort((a, b) => (a.date + (a.startTime || '00:00')).localeCompare(b.date + (b.startTime || '00:00')));
+  const list = tripFilter === 'all' ? all : all.filter((t) => t.category === tripFilter);
+  if (!list.length) {
+    el.innerHTML = emptyStateHtml('calendar', `這趟旅程還沒有「${categoryDef(tripFilter).label}」類的行程`);
+    return;
+  }
+  const sorted = [...list].sort((a, b) => (a.date + (a.startTime || '00:00')).localeCompare(b.date + (b.startTime || '00:00')));
 
   // 跨日行程會出現在它涵蓋的每一天：第一天是完整卡片，之後幾天用
   // 比較淡的「接續」列，這樣你翻到第二天也看得到自己還在車上／飯店裡。
@@ -1636,9 +1926,10 @@ function renderItinerary() {
     });
   });
 
+  const today = todayStr();
   el.innerHTML = Object.keys(groups).sort().map((date) => `
-    <div class="day-group">
-      <p class="day-group-label">${fmtDate(date)}</p>
+    <div class="day-group${date === today ? ' today' : (date < today ? ' past' : '')}" data-date="${date}">
+      <p class="day-group-label">${fmtDate(date)}${date === today ? '<span class="today-tag">今天</span>' : ''}</p>
       <div class="card-list">
         ${groups[date].map((e) => tripCardHtml(e.t, e.mode)).join('')}
       </div>
@@ -1827,7 +2118,7 @@ shForm.addEventListener('submit', (e) => {
     const i = state.shopping.findIndex((s) => s.id === editingShopId);
     state.shopping[i] = { ...state.shopping[i], ...data };
   } else {
-    state.shopping.push({ id: uid(), done: false, ...data });
+    state.shopping.push({ id: uid(), done: false, journeyId: state.currentJourney, ...data });
   }
   persist();
   closeSheet();
@@ -1839,16 +2130,16 @@ function renderShopping() {
   const el = document.getElementById('shoppingList');
   const summary = document.getElementById('shopSummary');
   updateHeaderSub();
-  if (!state.shopping.length) {
+  if (!curShopping().length) {
     summary.textContent = '';
     el.innerHTML = emptyStateHtml('cart', '清單是空的，點右下角「+」開始列購物清單');
     return;
   }
-  const done = state.shopping.filter((s) => s.done).length;
-  summary.textContent = `已購買 ${done} / ${state.shopping.length}`;
+  const done = curShopping().filter((s) => s.done).length;
+  summary.textContent = `已購買 ${done} / ${curShopping().length}`;
 
   // 未購買排前面，已購買沉到下面，各自維持原本新增順序
-  const sorted = [...state.shopping].sort((a, b) => (a.done === b.done ? 0 : a.done ? 1 : -1));
+  const sorted = [...curShopping()].sort((a, b) => (a.done === b.done ? 0 : a.done ? 1 : -1));
 
   el.innerHTML = sorted.map((s) => {
     const href = normalizeUrl(s.url);
@@ -1872,7 +2163,7 @@ function renderShopping() {
 
   el.querySelectorAll('[data-toggle]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      const item = state.shopping.find((s) => s.id === btn.dataset.toggle);
+      const item = curShopping().find((s) => s.id === btn.dataset.toggle);
       item.done = !item.done;
       persist();
       renderShopping();
@@ -1880,7 +2171,7 @@ function renderShopping() {
   });
   el.querySelectorAll('[data-edit]').forEach((row) => {
     row.addEventListener('click', () => {
-      const item = state.shopping.find((s) => s.id === row.dataset.edit);
+      const item = curShopping().find((s) => s.id === row.dataset.edit);
       openShoppingSheet(item);
     });
   });
@@ -1962,7 +2253,7 @@ tdForm.addEventListener('submit', (e) => {
     const i = state.todos.findIndex((t) => t.id === editingTodoId);
     state.todos[i] = { ...state.todos[i], ...data };
   } else {
-    state.todos.push({ id: uid(), done: false, ...data });
+    state.todos.push({ id: uid(), done: false, journeyId: state.currentJourney, ...data });
   }
   persist();
   closeSheet();
@@ -1974,17 +2265,17 @@ function renderTodos() {
   const el = document.getElementById('todoList');
   const summary = document.getElementById('todoSummary');
   updateHeaderSub();
-  if (!state.todos.length) {
+  if (!curTodos().length) {
     summary.textContent = '';
     el.innerHTML = emptyStateHtml('check', '還沒有待辦，點右下角「+」記下要準備的東西');
     return;
   }
-  const done = state.todos.filter((t) => t.done).length;
-  summary.textContent = `已完成 ${done} / ${state.todos.length}`;
+  const done = curTodos().filter((t) => t.done).length;
+  summary.textContent = `已完成 ${done} / ${curTodos().length}`;
 
   // 未完成排前面，並依「到期日近的優先」排序；沒填日期的排在有日期的後面；
   // 已完成的一律沉到最底下。
-  const sorted = [...state.todos].sort((a, b) => {
+  const sorted = [...curTodos()].sort((a, b) => {
     if (a.done !== b.done) return a.done ? 1 : -1;
     const da = a.dueDate || '9999-12-31';
     const db = b.dueDate || '9999-12-31';
@@ -2018,7 +2309,7 @@ function renderTodos() {
 
   el.querySelectorAll('[data-toggle]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      const item = state.todos.find((t) => t.id === btn.dataset.toggle);
+      const item = curTodos().find((t) => t.id === btn.dataset.toggle);
       item.done = !item.done;
       persist();
       renderTodos();
@@ -2026,7 +2317,7 @@ function renderTodos() {
   });
   el.querySelectorAll('[data-edit]').forEach((row) => {
     row.addEventListener('click', () => {
-      const item = state.todos.find((t) => t.id === row.dataset.edit);
+      const item = curTodos().find((t) => t.id === row.dataset.edit);
       openTodoSheet(item);
     });
   });
@@ -2049,10 +2340,8 @@ function emptyStateHtml(icon, text) {
 function openBackupSheet() {
   const dump = {
     exportedAt: new Date().toISOString(),
-    trips: state.trips,
-    shopping: state.shopping,
-    expenses: state.expenses,
-    todos: state.todos,
+    appVersion: APP_VERSION,
+    ...dataSnapshot(),
   };
   document.getElementById('exportArea').value = JSON.stringify(dump, null, 2);
   document.getElementById('importArea').value = '';
@@ -2064,6 +2353,7 @@ function openBackupSheet() {
 
 function diagText() {
   return [
+    `版本：v${APP_VERSION}（${APP_DATE}）`,
     `雲端狀態：${cloudStatus}`,
     `window.claude：${diag.hasClaude ? '有' : '沒有'}`,
     `claude.use()：${diag.hasUse ? '有' : '沒有'}`,
@@ -2195,10 +2485,10 @@ function applyImported(parsed) {
   state.shopping = normalized.shopping;
   state.expenses = normalized.expenses;
   state.todos = normalized.todos;
+  state.journeys = normalized.journeys;
+  state.currentJourney = normalized.currentJourney;
   persist();
-  renderItinerary();
-  renderShopping();
-  renderTodos();
+  renderAll();
   closeSheet();
   showToast('已還原資料');
 }
@@ -2220,14 +2510,12 @@ const downloadBtn = document.getElementById('downloadBtn');
 downloadBtn.addEventListener('click', async () => {
   const payload = JSON.stringify({
     exportedAt: new Date().toISOString(),
-    trips: state.trips,
-    shopping: state.shopping,
-    expenses: state.expenses,
-    todos: state.todos,
+    appVersion: APP_VERSION,
+    ...dataSnapshot(),
   }, null, 2);
   const d = new Date();
   const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-  const filename = `旅程手帳備份-${stamp}.json`;
+  const filename = `樹跡旅行備份-${stamp}.json`;
 
   function markBackedUp() {
     try { localStorage.setItem('travelnote_last_backup', new Date().toISOString()); } catch (e) {}
@@ -2253,7 +2541,7 @@ downloadBtn.addEventListener('click', async () => {
   try {
     const file = new File([payload], filename, { type: 'application/json' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: '旅程手帳備份' });
+      await navigator.share({ files: [file], title: '樹跡旅行備份' });
       markBackedUp();
       return;
     }
@@ -2310,22 +2598,19 @@ restoreFileInput.addEventListener('change', () => {
   } catch (e) { downloadsCap = null; }
 
   await hydrateState();  // 三個來源挑最新的一份，並實際驗證雲端寫得進去
-  renderItinerary();
-  renderShopping();
-  renderTodos();
+  document.getElementById('verTag').textContent = 'v' + APP_VERSION;
+  renderAll();
   switchTab('itinerary');
+  // 打開就直接停在今天（或最近的下一天），旅途中不用自己往下滑找
+  if (targetDay() === todayStr()) requestAnimationFrame(() => jumpToToday(false));
   updateSyncBadge();
   maybeSnapshot('open');  // 資料跟上次不一樣的話，自動留一個存檔點
 })();
 </script>
+
 <script>
-/* 註冊 Service Worker：讓 APP 完全離線也能開，並且成為真正的 PWA。
-   只在 https 或 localhost 有效，file:// 直接開會安靜略過。 */
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  });
+  window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
 }
 </script>
-</body>
-</html>
+</body></html>
