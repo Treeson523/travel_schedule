@@ -276,10 +276,10 @@
   .cat-badge {
     flex: none; width: 26px; height: 26px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    background: color-mix(in oklab, var(--cat-color) 18%, var(--card));
-    border: 1px solid color-mix(in oklab, var(--cat-color) 32%, var(--card));
+    background: color-mix(in oklab, var(--cat-color) 28%, var(--card));
+    border: 1px solid color-mix(in oklab, var(--cat-color) 55%, var(--card));
   }
-  .cat-badge svg { width: 14px; height: 14px; color: var(--cat-color); }
+  .cat-badge svg { width: 15px; height: 15px; color: var(--cat-color); }
   .category-picker { display: flex; flex-wrap: wrap; gap: 8px; }
   .cat-option {
     display: flex; align-items: center; gap: 6px; padding: 6px 12px 6px 6px;
@@ -595,7 +595,8 @@
   .today-tag { display: inline-block; margin-left: 8px; background: var(--accent); color: #fff; border-radius: 999px;
     padding: 1px 8px; font-size: 0.68rem; letter-spacing: 0.04em; text-transform: none; vertical-align: 1px; }
   .day-group.today .trip-card:not(.continued) { border-color: color-mix(in oklab, var(--accent) 45%, var(--line)); }
-  .day-group.past { opacity: 0.62; }
+  /* 已過去的日子只讓日期標題變淡，卡片維持原本亮度（之前整組調暗，看起來像整個行程變暗） */
+  .day-group.past .day-group-label { opacity: 0.65; }
   .toast {
     position: fixed; left: 50%; bottom: 110px; transform: translateX(-50%);
     background: var(--text); color: var(--surface); padding: 10px 18px; border-radius: 999px;
@@ -913,7 +914,7 @@ function todoDef(key) {
   return TODO_MAP[key] || TODO_DEFS[0];
 }
 
-const APP_VERSION = '1.9.5';
+const APP_VERSION = '1.9.6';
 const APP_DATE = '2026-10-04';
 const DEFAULT_JOURNEY_ID = 'j_default';
 
