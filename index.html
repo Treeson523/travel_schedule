@@ -4,7 +4,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="樹跡旅行">
 <meta name="theme-color" content="#16262B">
 <link rel="manifest" href="manifest.json">
@@ -121,7 +121,6 @@
   }
 
   * { box-sizing: border-box; }
-  html.win-short { --safe-b: 0px; }
   html { -webkit-text-size-adjust: 100%; height: 100%; background: var(--header-bg); }
   body {
     margin: 0;
@@ -914,7 +913,7 @@ function todoDef(key) {
   return TODO_MAP[key] || TODO_DEFS[0];
 }
 
-const APP_VERSION = '1.9.4';
+const APP_VERSION = '1.9.5';
 const APP_DATE = '2026-10-04';
 const DEFAULT_JOURNEY_ID = 'j_default';
 
@@ -2411,7 +2410,7 @@ function layoutDiag() {
     const app = document.querySelector('.app').getBoundingClientRect();
     const tb = document.querySelector('.tabbar').getBoundingClientRect();
     const standalone = (navigator.standalone === true) || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
-    return `${standalone ? '主畫面模式' : '瀏覽器'}｜視窗 ${innerWidth}×${innerHeight}｜螢幕 ${screen.width}×${screen.height}｜app底 ${Math.round(app.bottom)}｜分頁列 ${Math.round(tb.top)}–${Math.round(tb.bottom)}｜安全區下 ${safeB}｜視窗偏矮 ${document.documentElement.classList.contains('win-short') ? '是' : '否'}`;
+    return `${standalone ? '主畫面模式' : '瀏覽器'}｜視窗 ${innerWidth}×${innerHeight}｜螢幕 ${screen.width}×${screen.height}｜app底 ${Math.round(app.bottom)}｜分頁列 ${Math.round(tb.top)}–${Math.round(tb.bottom)}｜安全區下 ${safeB}`;
   } catch (e) { return '無法取得'; }
 }
 function renderDiag() {
@@ -2633,24 +2632,6 @@ restoreFileInput.addEventListener('change', () => {
   };
   reader.readAsText(file);
 });
-
-/* ================= 主畫面模式：視窗比螢幕矮 =================
-   實測（iPhone，加到主畫面）：視窗高度回報 812，螢幕實際 874。多出來的 62px
-   在網頁能畫的範圍之外（v1.9.2 試過把 APP 拉長蓋過去，結果分頁列被推到看不見的地方，已撤回）。
-   所以這裡只做一件事：偵測到這個狀況時，把分頁列下方預留的安全區拿掉
-   （Home 指示條本來就落在那段看不到的區域裡，不需要再留白），讓分頁列貼齊可視範圍底部。 */
-function fitScreen() {
-  try {
-    const standalone = (navigator.standalone === true) || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
-    const gap = screen.height - innerHeight;
-    const short = standalone && innerHeight > innerWidth && gap >= 8 && gap <= 100 && innerWidth < 560;
-    document.documentElement.classList.toggle('win-short', short);
-  } catch (e) {}
-}
-window.addEventListener('resize', fitScreen);
-window.addEventListener('orientationchange', () => setTimeout(fitScreen, 300));
-document.addEventListener('visibilitychange', fitScreen);
-fitScreen();
 
 /* ================= 初始化 ================= */
 (async function init() {
