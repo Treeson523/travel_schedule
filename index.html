@@ -914,7 +914,7 @@ function todoDef(key) {
   return TODO_MAP[key] || TODO_DEFS[0];
 }
 
-const APP_VERSION = '1.9.3';
+const APP_VERSION = '1.9.4';
 const APP_DATE = '2026-10-04';
 const DEFAULT_JOURNEY_ID = 'j_default';
 
@@ -2369,6 +2369,7 @@ function diagText() {
   return [
     `版本：v${APP_VERSION}（${APP_DATE}）`,
     `顯示：${layoutDiag()}`,
+    layoutDiag2(),
     `雲端狀態：${cloudStatus}`,
     `window.claude：${diag.hasClaude ? '有' : '沒有'}`,
     `claude.use()：${diag.hasUse ? '有' : '沒有'}`,
@@ -2378,6 +2379,28 @@ function diagText() {
     `網址：${diag.href}`,
     `UA：${navigator.userAgent}`,
   ].join('\n');
+}
+function layoutDiag2() {
+  try {
+    const px = (side) => {
+      const d = document.createElement('div');
+      d.style.cssText = `position:fixed;left:0;${side}:0;width:0;height:0;padding-${side}:env(safe-area-inset-${side},0px);visibility:hidden`;
+      document.body.appendChild(d); const v = d.offsetHeight; d.remove(); return v;
+    };
+    const vv = window.visualViewport;
+    const de = document.documentElement;
+    const hdr = document.querySelector('.app-header').getBoundingClientRect();
+    const dm = ['standalone', 'fullscreen', 'minimal-ui', 'browser'].filter((m) => matchMedia(`(display-mode: ${m})`).matches).join('/');
+    return [
+      `visualViewport ${vv ? Math.round(vv.width) + '×' + Math.round(vv.height) + ' 位移(' + Math.round(vv.offsetLeft) + ',' + Math.round(vv.offsetTop) + ') 縮放' + vv.scale : '無'}`,
+      `documentElement ${de.clientWidth}×${de.clientHeight}`,
+      `window.outer ${outerWidth}×${outerHeight}｜screen.avail ${screen.availWidth}×${screen.availHeight}`,
+      `安全區 上${px('top')} 下${px('bottom')}｜標題列頂端 ${Math.round(hdr.top)}｜捲動 ${Math.round(scrollY)}`,
+      `display-mode ${dm || '無'}｜navigator.standalone ${navigator.standalone}`,
+      `viewport meta ${(document.querySelector('meta[name=viewport]') || {}).content || '無'}`,
+      `status-bar meta ${(document.querySelector('meta[name=apple-mobile-web-app-status-bar-style]') || {}).content || '無'}`,
+    ].join('\n');
+  } catch (e) { return '無法取得 ' + e; }
 }
 function layoutDiag() {
   try {
